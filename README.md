@@ -37,6 +37,8 @@ npm run build    # продакшн-сборка в dist/ (PWA, работает
 
 ## Публикация веб-версии
 
+Синхронизация прогресса: на claude.ai — встроенное облако; в версии на GitHub Pages — секретный Gist твоего аккаунта GitHub (Настройки → Синхронизация, один раз вставить токен с правом `gist`). Между версиями прогресс переносится кодом (Настройки → Перенос кодом).
+
 Workflow `.github/workflows/deploy.yml` проверяет типы и тесты на каждом PR, а при пуше в основную ветку собирает сайт и кладёт его в ветку `gh-pages` — GitHub Pages раздаёт её по адресу https://formme.github.io/earwise/ (Settings → Pages → Source: «Deploy from a branch», `gh-pages`).
 
 Свой домен: Settings → Pages → Custom domain, DNS-запись CNAME на `<user>.github.io`, галочка «Enforce HTTPS». После этого на Android появится полноценная установка приложения (Chrome → «Установить»).

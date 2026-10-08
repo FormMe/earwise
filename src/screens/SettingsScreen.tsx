@@ -3,7 +3,7 @@ import { audio } from '../audio/engine';
 import type { Instrument } from '../audio/synth';
 import { Settings, useStore } from '../game/store';
 import { useT } from '../i18n';
-import { useCloud } from '../game/cloud';
+import { SyncPanel } from '../components/SyncPanel';
 
 type BIPEvent = Event & { prompt: () => Promise<void> };
 let deferredPrompt: BIPEvent | null = null;
@@ -40,7 +40,6 @@ export function SettingsScreen() {
       return true;
     }
   })();
-  const cloud = useCloud((c) => c.status);
   const ru = s.lang === 'ru';
   const [canInstall, setCanInstall] = useState(!!deferredPrompt);
   useEffect(() => {
@@ -173,23 +172,8 @@ export function SettingsScreen() {
         )}
       </div>
       <div className="card">
-        <p className="small">
-          {cloud === 'ok'
-            ? ru
-              ? '☁️ Прогресс сохраняется в облаке и доступен на всех твоих устройствах'
-              : '☁️ Progress is saved to the cloud and available on all your devices'
-            : cloud === 'syncing'
-              ? ru
-                ? '☁️ Синхронизация…'
-                : '☁️ Syncing…'
-              : cloud === 'error'
-                ? ru
-                  ? '⚠️ Не удалось сохранить в облако — прогресс пока хранится на этом устройстве'
-                  : '⚠️ Cloud save failed — progress is kept on this device for now'
-                : ru
-                  ? '📱 Прогресс хранится на этом устройстве'
-                  : '📱 Progress is stored on this device'}
-        </p>
+        <h3>☁️ {ru ? 'Синхронизация' : 'Sync'}</h3>
+        <SyncPanel />
         <p className="muted small">
           {t('about')} v{__APP_VERSION__}
         </p>

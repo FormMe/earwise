@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SyncPanel } from '../components/SyncPanel';
 import { audio } from '../audio/engine';
 import { useStore } from '../game/store';
 import { useT } from '../i18n';
@@ -14,6 +15,7 @@ export function Onboarding() {
   const voice = useStore((s) => s.settings.voice);
   const [goal, setGoal] = useState(50);
   const [feat, setFeat] = useState<number | null>(null);
+  const [restore, setRestore] = useState(false);
   const startSession = useNav((s) => s.startSession);
 
   const goals = [
@@ -91,6 +93,16 @@ export function Onboarding() {
       >
         🧭 {lang === 'ru' ? 'Я уже занимаюсь музыкой — входной тест' : "I'm a musician — placement test"}
       </button>
+      {/* a returning user on a new device: bring progress over instead of starting again */}
+      {restore ? (
+        <div className="card">
+          <SyncPanel compact />
+        </div>
+      ) : (
+        <button className="btn ghost block" onClick={() => setRestore(true)}>
+          ☁️ {lang === 'ru' ? 'У меня уже есть прогресс' : 'I already have progress'}
+        </button>
+      )}
     </div>
   );
 }
