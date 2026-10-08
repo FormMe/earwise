@@ -1,0 +1,130 @@
+import { describe, expect, it } from 'vitest';
+import { generate, resolution } from '../exercises/generate';
+import type { ExerciseConfig, GenCtx } from '../exercises/types';
+import { ALL_LESSONS } from '../game/curriculum';
+import { sampleKeys } from '../game/sessions';
+import { invert } from '../theory/chords';
+import { cadence, generateProgression, voiceProgression } from '../theory/harmony';
+import { generateMelody } from '../theory/melody';
+import { pc } from '../theory/notes';
+import { mulberry32 } from '../theory/random';
+import { generateRhythm, onsets, scoreTaps } from '../theory/rhythm';
+import { detectPitch } from '../audio/pitch';
+import { levelFromXp, xpForLevel, starsFor } from '../game/store';
+
+const ctx = (seed = 1): GenCtx => ({ rng: mulberry32(seed), weight: () => 1, lang: 'ru', naming: 'solfege', fixedRoot: false, tempo: 1, voice: 'low' });
+
+describe('theory', () => {
+  it('inverts chords', () => {
+    expect(invert([0, 4, 7], 1)).toEqual([0, 3, 8]);
+    expect(invert([0, 4, 7], 2)).toEqual([0, 5, 9]);
+  });
+
+  it('voices a cadence with the right roots in the bass', () => {
+    const c = cadence(60);
+    expect(c.map((ch) => pc(ch[0]))).toEqual([0, 5, 7, 0]);
+    // upper voices contain the chord tones
+    expect(new Set(c[1].slice(1).map(pc))).toEqual(new Set([5, 9, 0]));
+  });
+
+  it('voice leading keeps upper voices close', () => {
+    const v = voiceProgression(62, ['I', 'IV', 'V', 'I']);
+    for (let i = 1; i < v.length; i++) {
+      const moved = v[i].slice(1).reduce((s, n, k) => s + Math.abs(n - v[i - 1][k + 1]), 0);
+      expect(moved).toBeLessThanOrEqual(9);
+    }
+  });
+
+  it('progressions start on the tonic and stay in the pool', () => {
+    const rng = mulberry32(3);
+    for (let i = 0; i < 50; i++) {
+      const p = generateProgression(rng, ['I', 'IV', 'V', 'vi'], 4);
+      expect(p[0]).toBe('I');
+      expect(p).toHaveLength(4);
+      p.forEach((c) => expect(['I', 'IV', 'V', 'vi']).toContain(c));
+      for (let k = 1; k < p.length; k++) expect(p[k]).not.toBe(p[k - 1]);
+    }
+  });
+
+  it('melodies respect pool and max leap', () => {
+    const rng = mulberry32(5);
+    for (let i = 0; i < 50; i++) {
+      const m = generateMelody(rng, { pool: [0, 2, 4, 5, 7], length: 6, maxLeap: 4, startOnTonic: true });
+      expect(m[0]).toBe(0);
+      for (let k = 1; k < m.length; k++) expect(Math.abs(m[k] - m[k - 1])).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('rhythms fill exactly one bar', () => {
+    const rng = mulberry32(9);
+    for (let lvl = 1; lvl <= 4; lvl++)
+      for (let i = 0; i < 30; i++) {
+        const r = generateRhythm(rng, lvl, 1);
+        expect(r.reduce((a, b) => a + Math.abs(b), 0)).toBe(16);
+        expect(onsets(r).length).toBeGreaterThanOrEqual(3);
+      }
+  });
+
+  it('scores taps with tolerance', () => {
+    const exp = [0, 0.5, 1, 1.5];
+    expect(scoreTaps(exp, [0.02, 0.49, 1.05, 1.52], 0.08).acc).toBe(1);
+    expect(scoreTaps(exp, [0.02, 0.49], 0.08).acc).toBe(0.5);
+    expect(scoreTaps(exp, [0, 0.25, 0.5, 0.75, 1, 1.5], 0.08).extra).toBe(2);
+  });
+
+  it('degree resolution walks to the tonic', () => {
+    expect(resolution(4, false)).toEqual([4, 2, 0]);
+    expect(resolution(9, false)).toEqual([9, 11, 12]);
+    expect(resolution(0, false)).toEqual([0]);
+    expect(resolution(6, false)).toEqual([6, 5, 4, 2, 0]);
+  });
+
+  it('detects pitch of a sine', () => {
+    const sr = 44100;
+    for (const f of [110, 220, 330.5, 440, 659.3]) {
+      const buf = new Float32Array(2048).map((_, i) => 0.5 * Math.sin((2 * Math.PI * f * i) / sr) + 0.15 * Math.sin((4 * Math.PI * f * i) / sr));
+      const r = detectPitch(buf, sr)!;
+      expect(r).not.toBeNull();
+      expect(Math.abs(1200 * Math.log2(r.freq / f))).toBeLessThan(10);
+    }
+  });
+
+  it('levels and stars', () => {
+    expect(levelFromXp(0)).toBe(1);
+    expect(levelFromXp(xpForLevel(2))).toBe(2);
+    expect(levelFromXp(xpForLevel(5) - 1)).toBe(4);
+    expect(starsFor(0.5)).toBe(0);
+    expect(starsFor(0.6)).toBe(1);
+    expect(starsFor(1)).toBe(3);
+  });
+});
+
+describe('every lesson generates valid questions', () => {
+  for (const l of ALL_LESSONS) {
+    it(`${l.unit.id}/${l.id}`, () => {
+      for (let seed = 1; seed <= 25; seed++) {
+        const q = generate(l.cfg as ExerciseConfig, ctx(seed));
+        expect(q.stimulus.length).toBeGreaterThan(0);
+        expect(q.itemKeys.length).toBeGreaterThan(0);
+        expect(q.answer.length).toBeGreaterThan(0);
+        if (q.input === 'choice' || q.input === 'keys') {
+          expect(q.choices.map((c) => c.id)).toContain(q.answer[0]);
+          expect(new Set(q.choices.map((c) => c.id)).size).toBe(q.choices.length);
+        }
+        if (q.input === 'sequence') {
+          q.answer.forEach((a) => expect(q.choices.map((c) => c.id)).toContain(a));
+          expect(q.itemKeys.length).toBe(q.answer.length - (q.given ?? 0));
+        }
+        // everything audible should be in a sane MIDI range
+        for (const e of q.stimulus) for (const m of Array.isArray(e.midi) ? e.midi : [e.midi]) {
+          expect(m).toBeGreaterThanOrEqual(28);
+          expect(m).toBeLessThanOrEqual(100);
+        }
+      }
+    });
+  }
+
+  it('sampleKeys finds keys for review', () => {
+    expect(sampleKeys({ kind: 'interval', set: [3, 4], dirs: ['up'] }).sort()).toEqual(['int:3:up', 'int:4:up']);
+  });
+});
