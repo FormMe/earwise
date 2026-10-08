@@ -274,10 +274,10 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
   // blitz timer
   useEffect(() => {
-    if (!spec.timeLimit || phase === 'done') return;
+    if (!spec.timeLimit || phase === 'done' || (phase === 'feedback' && !isCorrect)) return;
     const id = setInterval(() => setTimeLeft((x) => Math.max(0, x - 0.1)), 100);
     return () => clearInterval(id);
-  }, [spec.timeLimit, phase]);
+  }, [spec.timeLimit, phase, isCorrect]);
   useEffect(() => {
     if (spec.timeLimit && timeLeft <= 0 && !finished.current) finish();
   }, [timeLeft, spec.timeLimit, finish]);
@@ -384,14 +384,14 @@ export function Session({ spec }: { spec: SessionSpec }) {
           // one weak unit doesn't end the test; the second one does
           if (b.fails >= 2 || b.i >= spec.blocks.length) {
             pendingEnd.current = { correct: nc, total: nt, xp: nxp, maxCombo: nmax };
-            nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), 1200);
+            if (ok) nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), 1200);
             return;
           }
         }
       }
       if (spec.lives != null && nlives <= 0) {
+        // the last life is gone on a miss: show the right answer until "Next"
         pendingEnd.current = { correct: nc, total: nt, xp: nxp, maxCombo: nmax };
-            nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), 1400);
         return;
       }
       if (spec.count != null && nt >= spec.count && ok && settings.autoNext) {
@@ -399,9 +399,10 @@ export function Session({ spec }: { spec: SessionSpec }) {
             nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), wait + 200);
         return;
       }
-      if ((ok && (settings.autoNext || arcade)) || (!ok && spec.mode === 'blitz')) {
-        nextTimer.current = window.setTimeout(() => advanceRef.current(), ok ? (arcade ? Math.min(wait, 500) : wait) : 1500);
-      } else if (spec.blocks) nextTimer.current = window.setTimeout(() => advanceRef.current(), ok ? 600 : 1300);
+      // only a right answer moves on by itself; after a miss or "don't know" the answer stays until "Next"
+      if (ok && (settings.autoNext || arcade)) {
+        nextTimer.current = window.setTimeout(() => advanceRef.current(), arcade ? Math.min(wait, 500) : wait);
+      } else if (ok && spec.blocks) nextTimer.current = window.setTimeout(() => advanceRef.current(), 600);
     },
     [q, phase, combo, correct, total, maxCombo, xp, lives, spec, settings, recordAnswer, recordSung, play, finish],
   );
