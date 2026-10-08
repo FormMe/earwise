@@ -3,6 +3,7 @@ import { audio } from '../audio/engine';
 import type { Instrument } from '../audio/synth';
 import { Settings, useStore } from '../game/store';
 import { useT } from '../i18n';
+import { useCloud } from '../game/cloud';
 
 type BIPEvent = Event & { prompt: () => Promise<void> };
 let deferredPrompt: BIPEvent | null = null;
@@ -32,6 +33,8 @@ export function SettingsScreen() {
   const setSettings = useStore((x) => x.setSettings);
   const reset = useStore((x) => x.resetProgress);
   const [askReset, setAskReset] = useState(false);
+  const cloud = useCloud((c) => c.status);
+  const ru = s.lang === 'ru';
   const [canInstall, setCanInstall] = useState(!!deferredPrompt);
   useEffect(() => {
     const h = () => setCanInstall(true);
@@ -158,6 +161,23 @@ export function SettingsScreen() {
         )}
       </div>
       <div className="card">
+        <p className="small">
+          {cloud === 'ok'
+            ? ru
+              ? '☁️ Прогресс сохраняется в облаке и доступен на всех твоих устройствах'
+              : '☁️ Progress is saved to the cloud and available on all your devices'
+            : cloud === 'syncing'
+              ? ru
+                ? '☁️ Синхронизация…'
+                : '☁️ Syncing…'
+              : cloud === 'error'
+                ? ru
+                  ? '⚠️ Не удалось сохранить в облако — прогресс пока хранится на этом устройстве'
+                  : '⚠️ Cloud save failed — progress is kept on this device for now'
+                : ru
+                  ? '📱 Прогресс хранится на этом устройстве'
+                  : '📱 Progress is stored on this device'}
+        </p>
         <p className="muted small">{t('about')}</p>
         {askReset ? (
           <div className="reset-confirm">
