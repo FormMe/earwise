@@ -71,12 +71,12 @@ export function ReferenceScreen() {
               </div>
               {i.up && (
                 <div className="small">
-                  ↑ <span className="muted">{i.up.join(' · ')}</span>
+                  ↑ <span className="muted">{songs(i.up, lang)}</span>
                 </div>
               )}
               {i.down && (
                 <div className="small">
-                  ↓ <span className="muted">{i.down.join(' · ')}</span>
+                  ↓ <span className="muted">{songs(i.down, lang)}</span>
                 </div>
               )}
             </div>
@@ -147,6 +147,12 @@ export function ReferenceScreen() {
       )}
     </div>
   );
+}
+
+/** English UI: drop the Russian-only song notes and titles */
+function songs(list: string[], lang: string) {
+  const out = lang === 'ru' ? list : list.map((x) => x.replace(/\s*\([^)]*[А-яЁё][^)]*\)/g, '')).filter((x) => !/[А-яЁё]/.test(x));
+  return out.join(' · ');
 }
 
 /** 1 полутон, 2 полутона, 5 полутонов */

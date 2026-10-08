@@ -664,6 +664,7 @@ h3 {
 
 /* ───────── session ───────── */
 .session {
+  overflow-x: clip;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -722,7 +723,7 @@ h3 {
 }
 .xp-pop {
   position: absolute;
-  right: 0;
+  right: 16px;
   top: 36px;
   font-weight: 900;
   color: var(--accent3);
@@ -1277,6 +1278,7 @@ h3 {
 
 /* results */
 .results {
+  overflow-x: clip;
   padding: calc(24px + var(--safe-t)) 16px calc(24px + var(--safe-b));
   display: flex;
   flex-direction: column;

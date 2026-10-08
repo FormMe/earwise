@@ -627,7 +627,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         )}
         {spec.timeLimit ? <div className="pill">⏱ {Math.ceil(timeLeft)}</div> : null}
         {spec.lives != null ? <div className="pill hearts">{'❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, (spec.lives ?? 0) - lives))}</div> : null}
-        {spec.mode === 'practice' || spec.mode === 'blitz' || spec.mode === 'survival' ? (
+        {(spec.mode === 'practice' || spec.mode === 'blitz' || spec.mode === 'survival') && total > 0 ? (
           <div className="pill">
             {Math.round(correct)}/{total}
           </div>

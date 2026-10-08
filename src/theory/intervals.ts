@@ -19,11 +19,11 @@ export const INTERVALS: IntervalDef[] = [
   },
   {
     semis: 2, id: 'M2', short: 'Б2', ru: 'Большая секунда', acc: 'большую секунду', en: 'Major 2nd',
-    up: ['Happy Birthday', '«Silent Night»'], down: ['Mary Had a Little Lamb', '«Yesterday» (The Beatles)'],
+    up: ['«Катюша» («Рас-цве…»)', 'Happy Birthday', '«Silent Night»'], down: ['Mary Had a Little Lamb', '«Yesterday» (The Beatles)'],
   },
   {
     semis: 3, id: 'm3', short: 'М3', ru: 'Малая терция', acc: 'малую терцию', en: 'Minor 3rd',
-    up: ['Greensleeves', 'Smoke on the Water'], down: ['Hey Jude', '«Frosty the Snowman»'],
+    up: ['«Подмосковные вечера» («Не слыш-…»)', 'Greensleeves', 'Smoke on the Water'], down: ['Hey Jude', '«Frosty the Snowman»'],
   },
   {
     semis: 4, id: 'M3', short: 'Б3', ru: 'Большая терция', acc: 'большую терцию', en: 'Major 3rd',
