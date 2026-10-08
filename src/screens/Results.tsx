@@ -19,11 +19,12 @@ interface Props {
   onReplay: (ev: NoteEvent[]) => void;
   onAgain: () => void;
   onClose: () => void;
+  onDrill?: () => void;
   mastered?: number;
   placed?: number;
 }
 
-export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes, onReplay, onAgain, onClose, mastered, placed }: Props) {
+export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes, onReplay, onAgain, onClose, onDrill, mastered, placed }: Props) {
   const t = useT();
   const lang = useLang();
   const highs = useStore((s) => s.highs);
@@ -97,8 +98,8 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
             🧭{' '}
             {placed > 0
               ? lang === 'ru'
-                ? `Засчитано разделов: ${placed}. Продолжай с раздела ${placed + 1}!`
-                : `Units placed out: ${placed}. Continue from unit ${placed + 1}!`
+                ? `Засчитано разделов: ${placed}. Продолжай с первого незасчитанного урока — он отмечен «Начать!». Контрольные любых разделов открыты всегда.`
+                : `Units placed out: ${placed}. Continue from the first open lesson (marked “Start!”). Checkpoints are always open.`
               : lang === 'ru'
                 ? 'Начни с первого раздела — так навыки лягут честно и крепко. Короткие уроки пролетишь быстро.'
                 : 'Start from unit 1 — the early lessons will fly by and the skills will stick.'}
@@ -160,6 +161,11 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
         </section>
       )}
 
+      {onDrill && mistakes.length > 0 && (
+        <button className="btn ghost block" onClick={onDrill}>
+          🎯 {lang === 'ru' ? 'Потренировать то, где ошибся' : 'Drill what I missed'}
+        </button>
+      )}
       <div className="results-actions">
         <button className="btn ghost big" onClick={onAgain}>
           🔁 {t('again')}

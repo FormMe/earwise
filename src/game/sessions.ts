@@ -39,9 +39,10 @@ export function dueShare(cfg: ExerciseConfig, items: Items, now = Date.now()) {
 const passed = (lessons: Lessons, id: string) => (lessons[id]?.stars ?? 0) > 0;
 
 /** Earlier passed lessons, most in need of review first. */
-function reviewPool(before: PathLesson[], lessons: Lessons, items: Items, max: number) {
+function reviewPool(before: PathLesson[], lessons: Lessons, items: Items, max: number, sameKind?: string) {
   return before
-    .filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind) && passed(lessons, l.id))
+    // inside ordinary lessons only quick questions (or the lesson's own type) are mixed in
+    .filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind) && passed(lessons, l.id) && (!sameKind || FAST_KINDS.has(l.cfg.kind) || l.cfg.kind === sameKind))
     .map((l) => ({ l, score: dueShare(l.cfg, items) + (1 - avgAcc(l.cfg, items)) * 0.5 }))
     .sort((a, b) => b.score - a.score)
     .slice(0, max)
@@ -75,7 +76,8 @@ export function lessonSpec(lessonId: string, lang: Lang, lessons: Lessons, items
       randomTimbre: true,
     };
   }
-  const review = l.unit.optional ? [] : reviewPool(before, lessons, items, 4);
+  const count = questionCount(l);
+  const review = l.unit.optional || count <= 8 ? [] : reviewPool(before, lessons, items, 4, l.cfg.kind);
   // passed lessons replay at the next difficulty level (crown)
   const done = lessons[lessonId]?.level ?? (replay ? 1 : 0);
   const level = replay ? Math.min(MAX_LEVEL, done + 1) : 1;
@@ -87,9 +89,10 @@ export function lessonSpec(lessonId: string, lang: Lang, lessons: Lessons, items
     primary: 1,
     // new material first; once the lesson is known, mix in more review
     mix: review.length ? (replay ? 0.3 : 0.2) : 0,
-    count: questionCount(l),
+    count,
     pass: passFor(l),
-    intro: !(lessons[lessonId]?.plays ?? 0),
+    // show the explanation again after a failed attempt
+    intro: !(lessons[lessonId]?.plays ?? 0) || !(lessons[lessonId]?.stars ?? 0),
     randomTimbre: level >= 2,
     level,
     tempoMul: level >= 5 ? 0.8 : level >= 3 ? 0.9 : 1,
@@ -161,7 +164,7 @@ export function placementSpec(lang: Lang): SessionSpec {
     const n = itemCount(cfg);
     return SEQ_PLACEMENT.has(cfg.kind) || (cfg.kind !== 'pitch' && n >= 3);
   };
-  const blocks = UNITS.filter((u) => !u.optional)
+  const blocks = UNITS.filter((u) => !u.optional && u.id !== 'u1')
     .map((u) => ({ unitId: u.id, configs: u.lessons.filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind) && guessProof(l.cfg)).map((l) => l.cfg) }))
     .filter((b) => b.configs.length);
   return { mode: 'placement', title: lang === 'ru' ? 'Входной тест' : 'Placement test', configs: blocks[0].configs, count: null, blocks, randomTimbre: false };

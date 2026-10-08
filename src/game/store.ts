@@ -179,7 +179,8 @@ export const useStore = create<State>()(
           const prevBox = it.b ?? 0;
           // promote at most once per due period, so drilling the same day doesn't fake long-term memory
           const isDue = !it.due || it.due <= now;
-          const b = correct ? (isDue ? Math.min(5, prevBox + 1) : prevBox) : 0;
+          // a slip drops two boxes, not all the way down
+          const b = correct ? (isDue ? Math.min(5, prevBox + 1) : prevBox) : Math.max(0, prevBox - 2);
           const due = correct ? (isDue ? now + BOX_DAYS[b] * DAY : it.due) : now + 10 * 60000;
           items[k] = { n: it.n + 1, c: it.c + (correct ? 1 : 0), s: correct ? it.s + 1 : 0, t: now, b, due };
           if (b >= 3 && prevBox < 3) newlyMastered++;
@@ -196,7 +197,9 @@ export const useStore = create<State>()(
         const today = todayStr();
         const prevLevel = levelFromXp(st.xp);
         const xp = st.xp + r.xp;
-        const days = { ...st.days, [today]: (st.days[today] ?? 0) + r.xp };
+        const allDays = { ...st.days, [today]: (st.days[today] ?? 0) + r.xp };
+        // keep about a year of history so storage doesn't grow forever
+        const days = Object.fromEntries(Object.entries(allDays).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-400));
         const goalBefore = (st.days[today] ?? 0) >= st.settings.dailyGoal;
         const goalReached = !goalBefore && days[today] >= st.settings.dailyGoal;
 
@@ -298,7 +301,30 @@ export const useStore = create<State>()(
         try {
           localStorage.setItem('__t', '1');
           localStorage.removeItem('__t');
-          return localStorage;
+          // never let a full quota (or private mode) throw inside a state update
+          return {
+            getItem: (k: string) => {
+              try {
+                return localStorage.getItem(k);
+              } catch {
+                return null;
+              }
+            },
+            setItem: (k: string, v: string) => {
+              try {
+                localStorage.setItem(k, v);
+              } catch {
+                /* quota exceeded: keep running from memory; cloud sync still saves */
+              }
+            },
+            removeItem: (k: string) => {
+              try {
+                localStorage.removeItem(k);
+              } catch {
+                /* ignore */
+              }
+            },
+          };
         } catch {
           const mem = new Map<string, string>();
           return {

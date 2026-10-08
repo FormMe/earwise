@@ -451,7 +451,7 @@ function genMelody(cfg: Extract<ExerciseConfig, { kind: 'melody' }>, ctx: GenCtx
     renderSequence: (seq) => seq.map((id, i) => ({ ...melEvents[i], midi: tonic + melSemis(id) })),
     explain: tr(
       ctx,
-      `Ноты: ${mel.map((s) => noteName(tonic + s, ctx.naming, ctx.lang)).join(' – ')}`,
+      `Ноты (абсолютные названия): ${mel.map((s) => noteName(tonic + s, ctx.naming, ctx.lang)).join(' – ')}`,
       `Notes: ${mel.map((s) => noteName(tonic + s, ctx.naming, ctx.lang)).join(' – ')}`,
     ),
   };

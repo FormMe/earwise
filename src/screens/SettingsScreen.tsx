@@ -190,7 +190,9 @@ export function SettingsScreen() {
                   ? '📱 Прогресс хранится на этом устройстве'
                   : '📱 Progress is stored on this device'}
         </p>
-        <p className="muted small">{t('about')}</p>
+        <p className="muted small">
+          {t('about')} v{__APP_VERSION__}
+        </p>
         {askReset ? (
           <div className="reset-confirm">
             <p className="small">{t('resetConfirm')}</p>

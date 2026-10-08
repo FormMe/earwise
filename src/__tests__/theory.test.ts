@@ -181,7 +181,8 @@ describe('levels & placement', () => {
     expect(top.replays).toBe(2);
   });
   it('placement covers every main unit', () => {
-    expect(placementSpec('ru').blocks!.length).toBe(14);
+    // unit 1 is credited together with unit 2
+    expect(placementSpec('ru').blocks!.length).toBe(13);
   });
   it('full dictation answers pitches then one cell per beat', () => {
     const q = generate({ kind: 'fullDictation', set: ['1', '2', '3', '4', '5'], bars: 1, level: 1 }, ctx(4));

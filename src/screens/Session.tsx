@@ -15,6 +15,7 @@ import { PulseInput } from '../components/PulseInput';
 import { Results } from './Results';
 import { RhythmGlyph } from '../components/RhythmGlyph';
 import { lessonById } from '../game/curriculum';
+import { focusSpec } from '../game/sessions';
 import { KIND_HELP } from '../game/help';
 import { haptic } from '../components/haptics';
 
@@ -84,7 +85,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number }[]>([]);
   const held = useRef<{ tonic: number; left: number } | null>(null);
   // placement test progress
-  const block = useRef({ i: 0, n: 0, ok: 0, dk: 0, placed: [] as string[] });
+  const block = useRef({ i: 0, n: 0, ok: 0, dk: 0, fails: 0, placed: [] as string[] });
   const [showHelp, setShowHelp] = useState(false);
   const [playsLeft, setPlaysLeft] = useState<number | null>(null);
   const [mastered, setMastered] = useState<number>(0);
@@ -243,7 +244,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
     }
     if (finished.current) return;
     const n = idx + 1;
-    if (spec.count != null && n >= spec.count) return finish();
+    if (spec.count != null && total >= spec.count) return finish();
     if (spec.lives != null && lives <= 0) return finish();
     setIdx(n);
     showQuestion(makeQuestion(n, correct));
@@ -263,14 +264,17 @@ export function Session({ spec }: { spec: SessionSpec }) {
       if (newlyMastered) setMastered((m) => m + newlyMastered);
       if (ok) q.itemKeys.forEach((k) => (seen.current[k] = (seen.current[k] ?? 0) + 1));
       else if (q.cfg && (q.input === 'choice' || q.input === 'keys') && spec.mode !== 'blitz' && spec.mode !== 'survival')
-        retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at: idx + 2 + Math.floor(Math.random() * 3) });
+        retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at: Math.min(idx + 2 + Math.floor(Math.random() * 3), (spec.count ?? Infinity) - 1) });
       if (q.input === 'sing' && ok) recordSung();
 
       const newCombo = ok ? combo + 1 : 0;
       const mult = spec.xpMult ?? 1;
       const gained = ok ? Math.round((10 + Math.min(10, Math.floor(newCombo / 3) * 2)) * mult) : 0;
-      const nc = correct + (ok ? 1 : 0);
-      const nt = total + 1;
+      // sequences earn partial credit (share of right slots); review questions don't affect the lesson score
+      const graded = q.input === 'sequence' && !dontKnow ? q.answer.slice(given).filter((a, i) => user[i + given] === a).length / Math.max(1, q.answer.length - given) : ok ? 1 : 0;
+      const counts = !q.review;
+      const nc = correct + (counts ? graded : 0);
+      const nt = total + (counts ? 1 : 0);
       const nmax = Math.max(maxCombo, newCombo);
       const nxp = xp + gained + newlyMastered * 5;
       setCombo(newCombo);
@@ -304,17 +308,22 @@ export function Session({ spec }: { spec: SessionSpec }) {
       if (spec.blocks) {
         const b = block.current;
         b.n++;
-        if (ok) b.ok++;
+        if (ok || graded >= 0.8) b.ok++;
         if (dontKnow) b.dk++;
         // a unit is credited only for near-perfect answers; two "don't know"s end it at once
         if (b.n >= BLOCK || b.dk >= 2 || b.n - b.ok > BLOCK - BLOCK_PASS) {
           const passedBlock = b.ok >= BLOCK_PASS;
-          if (passedBlock) b.placed.push(spec.blocks[b.i].unitId);
+          if (passedBlock) {
+            // unit 1 (2-option drills) isn't tested: it is credited together with unit 2
+            if (spec.blocks[b.i].unitId === 'u2') b.placed.push('u1');
+            b.placed.push(spec.blocks[b.i].unitId);
+          } else b.fails++;
           b.i++;
           b.n = 0;
           b.ok = 0;
           b.dk = 0;
-          if (!passedBlock || b.i >= spec.blocks.length) {
+          // one weak unit doesn't end the test; the second one does
+          if (b.fails >= 2 || b.i >= spec.blocks.length) {
             nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), 1200);
             return;
           }
@@ -410,6 +419,19 @@ export function Session({ spec }: { spec: SessionSpec }) {
   if (phase === 'done' && outcome)
     return (
       <Results
+        onDrill={() => {
+          // focus on the item missed most often, inside its own exercise
+          const tally = new Map<string, { n: number; m: Mistake }>();
+          for (const m of mistakes) {
+            const k = m.q.itemKeys[0];
+            const e = tally.get(k) ?? { n: 0, m };
+            e.n++;
+            tally.set(k, e);
+          }
+          const top = [...tally.entries()].sort((a, b) => b[1].n - a[1].n)[0];
+          const cfg = (top?.[1].m.q as SQuestion | undefined)?.cfg;
+          if (top && cfg) startSession(focusSpec(top[0], cfg, settings.lang === 'ru' ? 'Работа над ошибкой' : 'Fix a mistake'));
+        }}
         mastered={mastered}
         placed={spec.blocks ? block.current.placed.length : undefined}
         spec={spec}
@@ -509,7 +531,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         {spec.lives != null ? <div className="pill hearts">{'❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, (spec.lives ?? 0) - lives))}</div> : null}
         {spec.mode === 'practice' || spec.mode === 'blitz' || spec.mode === 'survival' ? (
           <div className="pill">
-            {correct}/{total}
+            {Math.round(correct)}/{total}
           </div>
         ) : null}
         {spec.blocks && (
@@ -664,6 +686,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         <div className="modal-bg" onClick={() => setShowHelp(false)}>
           <div className="modal help" onClick={(e) => e.stopPropagation()}>
             <h3>❓ {t('helpTitle')}</h3>
+            {spec.lessonId && lessonById(spec.lessonId)?.intro && <p className="intro-text">{lessonById(spec.lessonId)!.intro![settings.lang]}</p>}
             <p>
               <b>👂 {t('helpHear')}</b> {KIND_HELP[q.kind][settings.lang][0]}
             </p>

@@ -24,6 +24,12 @@ npm test         # юнит-тесты теории и генераторов
 npm run build    # продакшн-сборка в dist/ (PWA, работает офлайн)
 ```
 
+## Требования
+
+- Браузеры: Chrome / Android WebView 111+, Safari / iOS 16.4+, Firefox 114+.
+- Микрофон (упражнения на пение) работает только по HTTPS.
+- Обновления: новая версия скачивается в фоне, а применяется кнопкой «Обновить» на главных экранах — урок не прервётся.
+
 ## Мобильные приложения
 
 - **Сразу, без магазинов:** откройте сайт на телефоне → «На экран Домой» (iOS) / «Установить» (Android). Приложение работает офлайн.
@@ -31,7 +37,11 @@ npm run build    # продакшн-сборка в dist/ (PWA, работает
 
 ## Публикация веб-версии
 
-Workflow `.github/workflows/deploy.yml` публикует сайт на GitHub Pages при пуше в `main` (включите Pages → Source: GitHub Actions в настройках репозитория).
+Workflow `.github/workflows/deploy.yml` проверяет типы и тесты на каждом PR и публикует сайт на GitHub Pages при пуше в `main` (включите Pages → Source: GitHub Actions в настройках репозитория).
+
+Свой домен: Settings → Pages → Custom domain, DNS-запись CNAME на `<user>.github.io`, галочка «Enforce HTTPS». После этого на Android появится полноценная установка приложения (Chrome → «Установить»).
+
+Нативные сборки: `npm run cap:android` / `npm run cap:ios` — скрипт `scripts/cap-permissions.mjs` сам добавляет разрешение на микрофон.
 
 ## Структура
 

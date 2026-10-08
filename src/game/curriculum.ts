@@ -44,7 +44,7 @@ const CHECK = (id: string): Lesson => ({
   cfg: { kind: 'pitch', min: 1, max: 12 },
   checkpoint: true,
   questions: 20,
-  pass: 0.85,
+  pass: 0.8,
 });
 
 const MAJ = ['1', '2', '3', '4', '5', '6', '7'];
@@ -58,6 +58,7 @@ export const UNITS: Unit[] = [
     descRu: 'Высота, ритм и первые шаги голосом', descEn: 'Pitch, rhythm and your voice',
     lessons: [
       L('a1', 'Выше или ниже: широко', 'Higher or lower: wide', { kind: 'pitch', min: 5, max: 12 }, {
+        q: 10,
         intro: { ru: 'Слух начинается с простого: куда движется звук. Слушай обе ноты и решай — вверх или вниз.', en: 'Ear training starts simple: which way does the sound move?' },
       }),
       L('a2', 'Выше или ниже: ближе', 'Higher or lower: closer', { kind: 'pitch', min: 2, max: 5 }),
@@ -86,28 +87,32 @@ export const UNITS: Unit[] = [
     descRu: 'Слышать ноты относительно «дома» — главный навык', descEn: 'Hearing notes relative to home — the key skill',
     lessons: [
       L('b1', 'Тоника и квинта', 'Tonic and fifth', { kind: 'degree', set: ['1', '5'] }, {
-        intro: { ru: 'Перед каждым вопросом звучит каденция — она задаёт «дом» (тонику, 1 ступень). Тоника звучит спокойно и законченно, 5 ступень — опора, но хочет вернуться домой.', en: 'A cadence sets "home" (the tonic). Degree 1 feels at rest, 5 is stable but wants to go home.' },
+        intro: { ru: 'Перед вопросом звучат 4 аккорда — они задают «дом», главную ноту тональности (тонику). Ступень — это номер ноты от дома: дом = 1, следующая нота гаммы = 2 и так далее. Мы зовём ступени «до-ре-ми» от дома: в любой тональности дом — это «до» (это не нота C!). 1 звучит спокойно и законченно, 5 — устойчиво, но хочет вернуться домой.', en: 'Four chords set "home" — the tonic. A degree is a note\'s number counted from home: home = 1, the next scale note = 2… We sing degrees as do-re-mi from home in any key. 1 sounds at rest; 5 is stable but wants to go home.' },
       }),
       L('b1t', 'Найди тонику', 'Find the tonic', { kind: 'tonicFind' }, {
         intro: { ru: 'Мелодия почти всегда «возвращается домой». Послушай фразу и выбери, какая из трёх нот — дом.', en: 'Melodies come home. Pick which of three notes is home.' },
       }),
-      L('b2', 'До, ми, соль', 'Do, mi, sol', { kind: 'degree', set: ['1', '3', '5'] }, {
+      L('b2', '1–3–5 (до–ми–соль)', '1–3–5 (do–mi–sol)', { kind: 'degree', set: ['1', '3', '5'] }, {
         intro: { ru: '1-3-5 — это звуки тонического аккорда, «каркас» тональности. 3 ступень (ми) светлая и определяет мажор.', en: '1-3-5 is the tonic chord; 3 gives major its colour.' },
       }),
       L('b3', 'В одной тональности', 'In one key', { kind: 'degree', set: ['1', '3', '5'], holdKey: true }, {
         intro: { ru: 'Теперь тональность держится 5 вопросов подряд, а между ними звучит только тоника. Удерживай «дом» в голове.', en: 'The key stays for 5 questions; keep home in your head.' },
       }),
-      L('b4', 'Спой до–ми–соль', 'Sing do–mi–sol', { kind: 'sing', mode: 'degree', set: ['1', '3', '5'] }),
+      L('b4', 'Спой 1–3–5', 'Sing 1–3–5', { kind: 'sing', mode: 'degree', set: ['1', '3', '5'] }, {
+        intro: { ru: 'Прозвучит тональность и тоника (1). Чтобы найти нужную ступень, тихо пропой вверх от дома: 1-2-3… и остановись на нужной. «Подсказка» сыграет ответ.', en: 'You hear the key and the tonic. Sing up from home 1-2-3… and stop on the target. "Hint" plays the answer.' },
+      }),
       L('b5', 'Эхо: 3 ноты', 'Echo: 3 notes', { kind: 'sing', mode: 'echo', set: ['1', '3', '5'], length: 3 }, {
         intro: { ru: 'Услышь фразу и повтори её голосом нота за нотой.', en: 'Hear a phrase and sing it back note by note.' },
       }),
-      L('b6', 'До, ре, ми', 'Do, re, mi', { kind: 'degree', set: ['1', '2', '3'] }, {
+      L('b6', '1–2–3 (до–ре–ми)', '1–2–3 (do–re–mi)', { kind: 'degree', set: ['1', '2', '3'] }, {
         intro: { ru: '2 ступень (ре) неустойчива: она стремится вниз к 1 или вверх к 3.', en: 'Degree 2 is unstable: it leans to 1 or 3.' },
       }),
-      L('b7', 'Диктант: до-ре-ми', 'Dictation: do-re-mi', { kind: 'melody', set: ['1', '2', '3'], length: 3, startOnTonic: true }, {
+      L('b7', 'Диктант: 1–2–3', 'Dictation: 1–2–3', { kind: 'melody', set: ['1', '2', '3'], length: 3, startOnTonic: true }, {
         intro: { ru: 'Запиши мелодию ступенями. Сначала найди, где звучит «дом» (1), остальные ноты отсчитывай от него.', en: 'Write the melody in degrees, starting from home.' },
       }),
-      L('b8', 'Диктант: до-ми-соль', 'Dictation: do-mi-sol', { kind: 'melody', set: ['1', '3', '5', '8'], length: 3 }),
+      L('b8', 'Диктант: 1–3–5–8', 'Dictation: 1–3–5–8', { kind: 'melody', set: ['1', '3', '5', '8'], length: 3 }, {
+        intro: { ru: '8 — это снова дом (1), только на октаву выше.', en: '8 is home again, one octave higher.' },
+      }),
       L('b9', 'Мажорная или минорная гамма', 'Major or minor scale', { kind: 'scale', set: ['major', 'minor'] }),
       CHECK('b10'),
     ],
@@ -116,15 +121,19 @@ export const UNITS: Unit[] = [
     id: 'u3', icon: '✋', color: '#3fa9ff', ru: 'Пять ступеней', en: 'Five degrees',
     descRu: 'До-ре-ми-фа-соль и первые диктанты с ритмом', descEn: 'Do to sol and first rhythmic dictations',
     lessons: [
+      L('c2', 'Соседи: 2, 3, 4', 'Neighbours: 2, 3, 4', { kind: 'degree', set: ['2', '3', '4'] }, {
+        intro: { ru: '4 ступень (фа) тянется вниз к 3, 2 ступень — к 1. Эти «тяготения» и помогают узнавать ноты.', en: '4 pulls down to 3, 2 pulls to 1 — these pulls make notes recognisable.' },
+      }),
       L('c1', 'Ступени 1–5', 'Degrees 1–5', { kind: 'degree', set: ['1', '2', '3', '4', '5'] }, {
         intro: { ru: '4 ступень (фа) тянется вниз к 3, 2 ступень — к 1. Эти «тяготения» и помогают узнавать ноты.', en: '4 pulls down to 3, 2 pulls to 1 — these pulls make notes recognisable.' },
       }),
-      L('c2', 'Соседи: ре, ми, фа', 'Neighbours: re, mi, fa', { kind: 'degree', set: ['2', '3', '4'] }),
       L('c3', 'В одной тональности', 'In one key', { kind: 'degree', set: ['1', '2', '3', '4', '5'], holdKey: true }),
       L('c4', 'Спой ступени 1–5', 'Sing degrees 1–5', { kind: 'sing', mode: 'degree', set: ['1', '2', '3', '4', '5'] }),
       L('c5', 'Эхо: 4 ноты', 'Echo: 4 notes', { kind: 'sing', mode: 'echo', set: ['1', '2', '3', '4', '5'], length: 4 }),
       L('c6', 'Диктант: 4 ноты', 'Dictation: 4 notes', { kind: 'melody', set: ['1', '2', '3', '4', '5'], length: 4 }),
-      L('c7', 'Ритм на слух: паузы', 'Rhythm by ear: rests', { kind: 'rhythmDictation', level: 2 }),
+      L('c7', 'Ритм на слух: паузы', 'Rhythm by ear: rests', { kind: 'rhythmDictation', level: 2 }, {
+        intro: { ru: 'Пауза — доля без звука, но счёт продолжается: «раз-(и)-два».', en: 'A rest is a silent beat — keep counting.' },
+      }),
       L('c8', 'Диктант с ритмом: 5 нот', 'Rhythmic dictation: 5 notes', { kind: 'melody', set: ['1', '2', '3', '4', '5'], length: 5, rhythmic: true }, {
         intro: { ru: 'Теперь у нот разная длительность — как в настоящих песнях. Записывай высоту, а ритм просто слушай.', en: 'Notes now have real lengths, like in songs.' },
       }),
@@ -136,13 +145,15 @@ export const UNITS: Unit[] = [
     id: 'u4', icon: '🌞', color: '#ffb020', ru: 'Весь мажор', en: 'The whole major scale',
     descRu: 'Все семь ступеней, широкий диапазон, без подсказок', descEn: 'All seven degrees, wide range, less context',
     lessons: [
-      L('d1', 'Верх лада: 5–8', 'Upper degrees 5–8', { kind: 'degree', set: ['5', '6', '7', '8'] }, {
-        intro: { ru: '7 ступень (ти) — самая острая, она почти «впивается» в тонику сверху. 6 ступень мягко тянется к 5.', en: '7 (ti) is the sharpest — it leans hard into the tonic. 6 sinks to 5.' },
+      L('d2', 'Вводный тон', 'The leading tone', { kind: 'degree', set: ['6', '7', '8'] }, {
+        intro: { ru: '7 ступень (в русской традиции «си») — самая острая, она почти «впивается» в тонику сверху. 6 ступень мягко тянется к 5.', en: 'Degree 7 is the sharpest — it leans hard into the tonic. 6 sinks to 5.' },
       }),
-      L('d2', 'Вводный тон', 'The leading tone', { kind: 'degree', set: ['6', '7', '8'] }),
+      L('d1', 'Верх лада: 5–8', 'Upper degrees 5–8', { kind: 'degree', set: ['5', '6', '7', '8'] }, {
+        intro: { ru: '7 ступень (в русской традиции «си») — самая острая, она почти «впивается» в тонику сверху. 6 ступень мягко тянется к 5.', en: 'Degree 7 is the sharpest — it leans hard into the tonic. 6 sinks to 5.' },
+      }),
       L('d3', 'Все 7 ступеней', 'All 7 degrees', { kind: 'degree', set: MAJ }),
       L('d4', 'Ниже тоники: 5̣ 6̣ 7̣', 'Below the tonic: 5̣ 6̣ 7̣', { kind: 'degree', set: ['5,', '6,', '7,', '1', '2', '3'] }, {
-        intro: { ru: 'Мелодии часто опускаются ниже тоники. 7̣ под тоникой — тот же вводный тон, просто снизу.', en: 'Melodies often dip below the tonic; low 7 still leads up to 1.' },
+        intro: { ru: 'Точка под цифрой (5̣) значит: ступень ниже тоники, в нижней октаве. 7̣ под тоникой — тот же вводный тон, только снизу.', en: 'A dot under the number (5̣) means below the tonic, in the lower octave.' },
       }),
       L('d5', 'Разные октавы', 'Across octaves', { kind: 'degree', set: MAJ, wide: true }),
       L('d6', 'Только тоника', 'Tonic only', { kind: 'degree', set: MAJ, context: 'tonic' }, {
@@ -166,18 +177,24 @@ export const UNITS: Unit[] = [
     id: 'u5', icon: '🎸', color: '#20c060', ru: 'Гармония: T – S – D', en: 'Harmony: T – S – D',
     descRu: 'Три главных аккорда, бас и каденции', descEn: 'The three main chords, bass and cadences',
     lessons: [
-      L('e1', 'Бас: I, IV, V', 'Bass: I, IV, V', { kind: 'bass', set: ['I', 'IV', 'V'], length: 4 }, {
-        intro: { ru: 'Почти любая песня стоит на трёх аккордах: I (тоника, дом), IV (субдоминанта, «отход») и V (доминанта, напряжение). Их бас поёт ступени 1, 4 и 5.', en: 'Most songs rest on I (home), IV (away) and V (tension). Their bass sings degrees 1, 4 and 5.' },
-      }),
       L('e1f', 'Функции: T, S, D', 'Functions: T, S, D', { kind: 'function', set: ['I', 'IV', 'V'] }, {
         intro: { ru: 'У каждого аккорда есть «роль»: T — покой, S — уход из дома, D — напряжение, которое тянет обратно.', en: 'Every chord has a role: T rest, S away, D tension.' },
       }),
-      L('e2', 'I, IV, V', 'I, IV, V', { kind: 'progression', set: ['I', 'IV', 'V'], length: 4 }),
+      L('e1', 'Бас: I, IV, V', 'Bass: I, IV, V', { kind: 'bass', set: ['I', 'IV', 'V'], length: 4 }, {
+        intro: { ru: 'Почти любая песня стоит на трёх аккордах: I (тоника, дом), IV (субдоминанта, «отход») и V (доминанта, напряжение). Их бас поёт ступени 1, 4 и 5.', en: 'Most songs rest on I (home), IV (away) and V (tension). Their bass sings degrees 1, 4 and 5.' },
+      }),
+      L('e2', 'I, IV, V', 'I, IV, V', { kind: 'progression', set: ['I', 'IV', 'V'], length: 4 }, {
+        intro: { ru: 'Большие римские цифры (I, IV, V) — мажорные аккорды, маленькие (ii, vi) — минорные. Первый аккорд уже вписан.', en: 'Upper-case numerals are major chords, lower-case are minor. The first chord is filled in.' },
+      }),
       L('e3', 'Каденции: полная и половинная', 'Cadences: authentic & half', { kind: 'cadence', set: ['PAC', 'HC'] }, {
         intro: { ru: 'Каденция — «знак препинания» в музыке. Полная (V→I) — точка, половинная (остановка на V) — запятая.', en: 'Cadences are punctuation: V→I is a full stop, ending on V is a comma.' },
       }),
-      L('e4', '+ V7', '+ V7', { kind: 'progression', set: ['I', 'IV', 'V', 'V7'], length: 4 }),
-      L('e5', '+ плагальная', '+ plagal', { kind: 'cadence', set: ['PAC', 'HC', 'PC'] }),
+      L('e4', '+ V7', '+ V7', { kind: 'progression', set: ['I', 'IV', 'V', 'V7'], length: 4 }, {
+        intro: { ru: 'V7 — тот же V, но с добавленной 4 ступенью: звучит острее и сильнее тянет к I.', en: 'V7 is V plus degree 4: sharper, it pulls harder to I.' },
+      }),
+      L('e5', '+ плагальная', '+ plagal', { kind: 'cadence', set: ['PAC', 'HC', 'PC'] }, {
+        intro: { ru: 'Плагальная каденция IV→I — мягкое «аминь» в конце церковного гимна.', en: 'The plagal cadence IV→I is the soft "amen".' },
+      }),
       L('e6', 'Петля: фортепиано', 'Loop: piano ballad', { kind: 'progression', set: ['I', 'IV', 'V'], length: 4, free: true, style: 'ballad' }, {
         intro: { ru: 'Теперь как в песне: аккомпанемент, один аккорд на такт, и петля может начаться не с I. Сначала звучит каденция, чтобы задать тональность.', en: 'Now like a song: accompaniment, one chord per bar, and the loop may not start on I.' },
       }),
@@ -185,7 +202,9 @@ export const UNITS: Unit[] = [
         intro: { ru: 'vi — минорный аккорд на 6 ступени. I–V–vi–IV — самая популярная последовательность в поп-музыке.', en: 'vi is the minor chord on degree 6. I–V–vi–IV powers countless pop songs.' },
       }),
       L('e8', 'Бас: I, IV, V, vi', 'Bass: I, IV, V, vi', { kind: 'bass', set: ['I', 'IV', 'V', 'vi'], length: 4 }),
-      L('e8f', 'Функции: + ii и vi', 'Functions: + ii and vi', { kind: 'function', set: ['I', 'ii', 'IV', 'V', 'vi', 'V7'] }),
+      L('e8f', 'Функции: + ii и vi', 'Functions: + ii and vi', { kind: 'function', set: ['I', 'ii', 'IV', 'V', 'vi', 'V7'] }, {
+        intro: { ru: 'vi может заменять тонику (T), ii — субдоминанту (S).', en: 'vi can stand in for the tonic (T), ii for the subdominant (S).' },
+      }),
       L('e9', 'Поп-группа', 'Pop band', { kind: 'progression', set: ['I', 'IV', 'V', 'vi'], length: 4, free: true, style: 'pop' }),
       L('e10', 'Гитара', 'Guitar strum', { kind: 'progression', set: ['I', 'IV', 'V', 'vi'], length: 4, free: true, style: 'strum' }),
       CHECK('e11'),
@@ -209,6 +228,7 @@ export const UNITS: Unit[] = [
       L('f5', 'Сексты', 'Sixths', { kind: 'interval', set: [8, 9], dirs: ['up'] }),
       L('f6', 'Терции, кварта, квинта, октава', 'Thirds, 4th, 5th, octave', { kind: 'interval', set: [3, 4, 5, 7, 12], dirs: ['up'] }),
       L('f7', 'Септимы и тритон', 'Sevenths & tritone', { kind: 'interval', set: [6, 10, 11], dirs: ['up'] }),
+      L('f7m', 'Всё до сексты', 'Everything up to sixths', { kind: 'interval', set: [1, 2, 3, 4, 5, 7, 8, 9], dirs: ['up'] }),
       L('f8', 'Все восходящие', 'All ascending', { kind: 'interval', set: ALL12, dirs: ['up'] }),
       L('f8k', 'Все интервалы от тоники', 'All intervals from the tonic', { kind: 'intervalInKey', set: ['1', '2', '3', '4', '5', '6', '7', '8'] }),
       L('f9', 'Гармонические консонансы', 'Harmonic consonances', { kind: 'interval', set: [3, 4, 5, 7, 8, 9, 12], dirs: ['harm'] }, {
@@ -232,8 +252,12 @@ export const UNITS: Unit[] = [
       }),
       L('g5', 'Спой в миноре', 'Sing in minor', { kind: 'sing', mode: 'degree', set: ['1', 'b3', '5'], minor: true }),
       L('g6', 'Диктант в миноре', 'Minor dictation', { kind: 'melody', set: ['5,', '1', '2', 'b3', '4', '5', 'b6', 'b7', '8'], length: 5, minor: true, rhythmic: true }),
-      L('g7', 'i – iv – V', 'i – iv – V', { kind: 'progression', set: ['i', 'iv', 'V'], length: 4, minor: true }),
-      L('g8', '+ VI и VII', '+ VI and VII', { kind: 'progression', set: ['i', 'iv', 'V', 'VI', 'VII'], length: 4, minor: true }),
+      L('g7', 'i – iv – V', 'i – iv – V', { kind: 'progression', set: ['i', 'iv', 'V'], length: 4, minor: true }, {
+        intro: { ru: 'В миноре i и iv — минорные, а V обычно мажорный (из гармонического минора) — он даёт яркое тяготение к i.', en: 'In minor, i and iv are minor, but V is usually major and pulls strongly to i.' },
+      }),
+      L('g8', '+ VI и VII', '+ VI and VII', { kind: 'progression', set: ['i', 'iv', 'V', 'VI', 'VII'], length: 4, minor: true }, {
+        intro: { ru: 'VI и VII — мажорные аккорды натурального минора; VII→i звучит «эпически», как в роке.', en: 'VI and VII are the major chords of natural minor; VII→i sounds epic.' },
+      }),
       L('g9', 'Минорная петля: гитара', 'Minor loop: guitar', { kind: 'progression', set: ['i', 'III', 'iv', 'VI', 'VII'], length: 4, minor: true, free: true, style: 'strum' }),
       CHECK('g10'),
     ],
@@ -253,6 +277,7 @@ export const UNITS: Unit[] = [
       }),
       L('h2', 'Шестнадцатые: 2 такта', 'Sixteenths: 2 bars', { kind: 'rhythmDictation', level: 3, bars: 2 }),
       L('h3', 'Синкопы и триоли', 'Syncopation & triplets', { kind: 'rhythmDictation', level: 4 }, {
+        q: 10,
         intro: { ru: 'Триоль — три равные ноты на одну долю («ра-зи-ки»). Синкопа — акцент между долями.', en: 'A triplet is three even notes per beat; syncopation lands between beats.' },
       }),
       L('h4', 'Повтори: 2 такта', 'Echo: 2 bars', { kind: 'rhythm', level: 3, bars: 2 }),
@@ -271,8 +296,10 @@ export const UNITS: Unit[] = [
       L('i2', 'Секунды и сексты вниз', 'Seconds & sixths down', { kind: 'interval', set: [1, 2, 8, 9], dirs: ['down'] }),
       L('i3', 'Все нисходящие', 'All descending', { kind: 'interval', set: ALL12, dirs: ['down'] }),
       L('i4', 'Гармонические диссонансы', 'Harmonic dissonances', { kind: 'interval', set: [1, 2, 6, 10, 11], dirs: ['harm'] }),
-      L('i5', 'Все направления', 'All directions', { kind: 'interval', set: ALL12, dirs: ['up', 'down', 'harm'] }, { q: 30 }),
-      L('i6', 'Мажор, минор, уменьшённый', 'Major, minor, diminished', { kind: 'chord', set: ['maj', 'min', 'dim'], open: true }),
+      L('i5', 'Все направления', 'All directions', { kind: 'interval', set: ALL12, dirs: ['up', 'down', 'harm'] }, { q: 36 }),
+      L('i6', 'Мажор, минор, уменьшённый', 'Major, minor, diminished', { kind: 'chord', set: ['maj', 'min', 'dim'], open: true }, {
+        intro: { ru: 'Уменьшённое трезвучие — две малые терции: звучит тесно и тревожно.', en: 'Diminished = two minor thirds: tight and tense.' },
+      }),
       L('i7', '+ увеличенный', '+ augmented', { kind: 'chord', set: ['maj', 'min', 'dim', 'aug'], open: true }),
       L('i8', 'Sus-аккорды', 'Sus chords', { kind: 'chord', set: ['maj', 'sus2', 'sus4'] }),
       L('i9', 'Обращения трезвучий', 'Triad inversions', { kind: 'inversion', chords: ['maj', 'min'], invs: [0, 1, 2] }, {
@@ -285,7 +312,9 @@ export const UNITS: Unit[] = [
     id: 'u10', icon: '🎵', color: '#00b3d6', ru: 'Аккорды в песнях', en: 'Chords in songs',
     descRu: 'Петли, обращения, вторичные доминанты, заимствования', descEn: 'Loops, inversions, secondary dominants, borrowed chords',
     lessons: [
-      L('j1', 'ii и iii', 'ii and iii', { kind: 'progression', set: ['I', 'ii', 'iii', 'IV', 'V', 'vi'], length: 4 }),
+      L('j1', 'ii и iii', 'ii and iii', { kind: 'progression', set: ['I', 'ii', 'iii', 'IV', 'V', 'vi'], length: 4 }, {
+        intro: { ru: 'ii и iii — минорные аккорды; ii похож по роли на IV (S), iii — на I.', en: 'ii and iii are minor; ii acts like IV (S), iii like I.' },
+      }),
       L('j2', 'Бас с обращениями', 'Bass with inversions', { kind: 'bass', set: ['I', 'ii', 'IV', 'V', 'vi'], length: 4, inversions: true }, {
         intro: { ru: 'Если бас идёт плавно (1-7-6 или 1-2-3), часто это аккорд в обращении: например I⁶ — тоника с 3 ступенью в басу.', en: 'Smooth bass lines often mean inversions, e.g. I⁶ has degree 3 in the bass.' },
       }),
@@ -298,7 +327,9 @@ export const UNITS: Unit[] = [
       L('j7', 'V7 и II (доминанта к V)', 'V7 and II (V of V)', { kind: 'progression', set: ['I', 'ii', 'IV', 'V', 'V7', 'II'], length: 4 }, {
         intro: { ru: 'II — мажорный аккорд на 2 ступени, «доминанта к доминанте». Он ярко ведёт к V.', en: 'Major II is the "V of V" — it drives to V.' },
       }),
-      L('j8', 'Вторичные доминанты', 'Secondary dominants', { kind: 'progression', set: ['I', 'ii', 'IV', 'V', 'vi', 'III7', 'I7'], length: 4 }),
+      L('j8', 'Вторичные доминанты', 'Secondary dominants', { kind: 'progression', set: ['I', 'ii', 'IV', 'V', 'vi', 'III7', 'I7'], length: 4 }, {
+        intro: { ru: 'III7 ведёт в vi, I7 ведёт в IV — это «доминанты» к другим аккордам.', en: 'III7 leads to vi, I7 leads to IV — dominants of other chords.' },
+      }),
       L('j9', 'Заимствованные аккорды', 'Borrowed chords', { kind: 'progression', set: ['I', 'IV', 'V', 'vi', '♭VII', '♭VI', 'iv'], length: 4, free: true, style: 'pop' }, {
         intro: { ru: '♭VII, ♭VI и iv «заимствованы» из одноимённого минора — рок и кино их обожают.', en: '♭VII, ♭VI and iv come from the parallel minor — rock and film love them.' },
       }),
@@ -310,12 +341,18 @@ export const UNITS: Unit[] = [
     id: 'u11', icon: '🌙', color: '#9b6bff', ru: 'Септаккорды и джаз', en: 'Sevenths & jazz',
     descRu: 'Краски джаза, соула и неоклассики', descEn: 'Colours of jazz, soul and neo-classical',
     lessons: [
-      L('k1', 'maj7, 7, m7', 'maj7, 7, m7', { kind: 'chord', set: ['maj7', 'dom7', 'min7'], open: true }),
+      L('k1', 'maj7, 7, m7', 'maj7, 7, m7', { kind: 'chord', set: ['maj7', 'dom7', 'min7'], open: true }, {
+        intro: { ru: 'Септаккорд = трезвучие + ещё одна терция сверху. maj7 — мечтательный, 7 — блюзовый и требует разрешения, m7 — мягкий.', en: 'A seventh chord is a triad plus another third: maj7 dreamy, 7 bluesy, m7 mellow.' },
+      }),
       L('k2', '+ m7♭5 и °7', '+ m7♭5 & °7', { kind: 'chord', set: ['maj7', 'dom7', 'min7', 'm7b5', 'dim7'], open: true }),
       L('k3', 'Пара: 7 и maj7', 'Pair: 7 vs maj7', { kind: 'chord', set: ['dom7', 'maj7'], open: true }),
       L('k4', 'Все септ- и секстаккорды', 'All 7ths & 6ths', { kind: 'chord', set: ['maj7', 'dom7', 'min7', 'm7b5', 'dim7', 'mMaj7', 'maj6'], open: true }),
-      L('k5', 'add9 и 9', 'add9 and 9', { kind: 'chord', set: ['maj', 'add9', 'dom7', 'dom9'] }),
-      L('k6', 'Обращения септаккордов', '7th chord inversions', { kind: 'inversion', chords: ['dom7', 'maj7'], invs: [0, 1, 2, 3] }),
+      L('k5', 'add9 и 9', 'add9 and 9', { kind: 'chord', set: ['maj', 'add9', 'dom7', 'dom9'] }, {
+        intro: { ru: 'add9 — мажор с добавленной ноной (ре над до), звучит «сверкающе». 9 — доминантсептаккорд с ноной, фанковый.', en: 'add9 is major plus a 9th; 9 is a dominant 7th with a 9th.' },
+      }),
+      L('k6', 'Обращения септаккордов', '7th chord inversions', { kind: 'inversion', chords: ['dom7', 'maj7'], invs: [0, 1, 2, 3] }, {
+        intro: { ru: 'В септаккорде 4 звука, значит обращений три: в басу терция, квинта или септима.', en: 'A seventh chord has 3 inversions: 3rd, 5th or 7th in the bass.' },
+      }),
       L('k7', 'ii – V – I', 'ii – V – I', { kind: 'progression', set: ['Imaj7', 'ii7', 'V7', 'vi7'], length: 4, style: 'jazz' }, {
         intro: { ru: 'ii7–V7–Imaj7 — главная формула джаза. Слушай, как бас ходит по квартам вверх.', en: 'ii7–V7–Imaj7 is the core of jazz; the bass moves up in fourths.' },
       }),
@@ -347,14 +384,24 @@ export const UNITS: Unit[] = [
     id: 'u13', icon: '🎨', color: '#ff9f1c', ru: 'Лады в контексте', en: 'Modes in context',
     descRu: 'Дорийский, лидийский и компания — на бурдоне', descEn: 'Dorian, Lydian & friends over a drone',
     lessons: [
-      L('m1', 'Три минора', 'Three minors', { kind: 'scale', set: ['minor', 'harmMinor', 'melMinor'], vamp: true }),
+      L('m1', 'Три минора', 'Three minors', { kind: 'scale', set: ['minor', 'harmMinor', 'melMinor'], vamp: true }, {
+        intro: { ru: 'Гармонический минор — повышенная 7 ступень (восточный колорит). Мелодический — повышены 6 и 7.', en: 'Harmonic minor raises 7; melodic raises 6 and 7.' },
+      }),
       L('m2', 'Дорийский или минор', 'Dorian or minor', { kind: 'scale', set: ['minor', 'dorian'], vamp: true }, {
         intro: { ru: 'Дорийский — минор с «светлой» 6 ступенью. Слушай, где мелодия касается 6.', en: 'Dorian is minor with a bright 6th.' },
       }),
-      L('m3', 'Миксолидийский или мажор', 'Mixolydian or major', { kind: 'scale', set: ['major', 'mixolydian'], vamp: true }),
-      L('m4', 'Лидийский', 'Lydian', { kind: 'scale', set: ['major', 'lydian', 'mixolydian'], vamp: true }),
-      L('m5', 'Фригийский и локрийский', 'Phrygian & Locrian', { kind: 'scale', set: ['minor', 'phrygian', 'locrian'], vamp: true }),
-      L('m6', 'Пентатоники и блюз', 'Pentatonics & blues', { kind: 'scale', set: ['majPent', 'minPent', 'blues'], vamp: true }),
+      L('m3', 'Миксолидийский или мажор', 'Mixolydian or major', { kind: 'scale', set: ['major', 'mixolydian'], vamp: true }, {
+        intro: { ru: 'Миксолидийский — мажор с пониженной 7 ступенью (♭7): «рок-мажор».', en: 'Mixolydian is major with ♭7.' },
+      }),
+      L('m4', 'Лидийский', 'Lydian', { kind: 'scale', set: ['major', 'lydian', 'mixolydian'], vamp: true }, {
+        intro: { ru: 'Лидийский — мажор с повышенной 4 ступенью (♯4): сказочный, «парящий».', en: 'Lydian is major with ♯4.' },
+      }),
+      L('m5', 'Фригийский и локрийский', 'Phrygian & Locrian', { kind: 'scale', set: ['minor', 'phrygian', 'locrian'], vamp: true }, {
+        intro: { ru: 'Фригийский — минор с ♭2 (испанский колорит). Локрийский — ещё и с ♭5, самый тёмный.', en: 'Phrygian is minor with ♭2; Locrian adds ♭5.' },
+      }),
+      L('m6', 'Пентатоники и блюз', 'Pentatonics & blues', { kind: 'scale', set: ['majPent', 'minPent', 'blues'], vamp: true }, {
+        intro: { ru: 'Пентатоника — 5 нот без «острых» полутонов. Блюзовая добавляет «блюзовую ноту» (♭5).', en: 'Pentatonic has 5 notes and no semitones; blues adds the blue note.' },
+      }),
       L('m7', 'Все лады', 'All modes', { kind: 'scale', set: ['major', 'minor', 'dorian', 'phrygian', 'lydian', 'mixolydian'], vamp: true }),
       CHECK('m8'),
     ],
@@ -364,6 +411,7 @@ export const UNITS: Unit[] = [
     descRu: 'Длинные диктанты и гармония целых песен', descEn: 'Long dictations and whole-song harmony',
     lessons: [
       L('n1', 'Диктант: 8 нот', 'Dictation: 8 notes', { kind: 'melody', set: MAJ_FULL, length: 8, rhythmic: true, maxLeap: 9 }, { q: 5 }),
+      L('n1b', 'Полный диктант: 4 такта', 'Full dictation: 4 bars', { kind: 'fullDictation', set: MAJ_FULL, bars: 4, level: 2 }, { q: 4 }),
       L('n2', 'Минорный диктант с вводным тоном', 'Minor dictation with leading tone', { kind: 'melody', set: ['5,', '7,', '1', '2', 'b3', '4', '5', 'b6', 'b7', '7', '8'], length: 7, minor: true, rhythmic: true }, { q: 5 }),
       L('n2v', 'Двухголосие', 'Two-voice dictation', { kind: 'twoVoice', set: ['I', 'ii', 'IV', 'V', 'vi'], length: 4 }, {
         q: 5,
@@ -372,7 +420,9 @@ export const UNITS: Unit[] = [
       L('n2f', 'Полный диктант: минор', 'Full dictation: minor', { kind: 'fullDictation', set: ['5,', '7,', '1', '2', 'b3', '4', '5', 'b6', '8'], bars: 2, level: 2, minor: true }, { q: 5 }),
       L('n3', 'Гармония песни: 8 тактов', 'Song harmony: 8 bars', { kind: 'progression', set: ['I', 'ii', 'iii', 'IV', 'V', 'vi', '♭VII'], length: 8, free: true, inversions: true, style: 'pop' }, { q: 5 }),
       L('n4', 'Джазовый стандарт', 'Jazz standard', { kind: 'progression', set: ['Imaj7', 'ii7', 'V7', 'vi7', 'VI7', 'IVmaj7'], length: 6, free: true, style: 'jazz' }, { q: 5 }),
-      L('n5', 'Составные интервалы', 'Compound intervals', { kind: 'interval', set: [12, 13, 14, 15, 16], dirs: ['up', 'harm'] }),
+      L('n5', 'Составные интервалы', 'Compound intervals', { kind: 'interval', set: [12, 13, 14, 15, 16], dirs: ['up', 'harm'] }, {
+        intro: { ru: 'Составные интервалы шире октавы: нона = октава + секунда, децима = октава + терция.', en: 'Compound intervals: a 9th = octave + 2nd, a 10th = octave + 3rd.' },
+      }),
       L('n6', 'Ритм: всё вместе, 2 такта', 'Rhythm: everything, 2 bars', { kind: 'rhythmDictation', level: 4, bars: 2 }),
       { ...CHECK('n7'), ru: 'Финальный экзамен', en: 'Final exam', questions: 30 },
     ],
@@ -491,7 +541,7 @@ export const KIND_META: Record<ExerciseKind, { icon: string; ru: string; en: str
 
 /** Difficulty levels (crowns). Level 1 = as written; higher levels change the conditions, not the pass mark. */
 export const LEVELS = {
-  ru: ['', 'Базовый', 'Разные тембры', 'Шире и быстрее', 'Меньше подсказок, 3 прослушивания', 'Мастер: 2 прослушивания'],
+  ru: ['', 'Базовый', 'Разные тембры', 'Шире и быстрее', 'Меньше подсказок, 3 прослушивания', 'Мастер: 2 прослушивания, включая первое'],
   en: ['', 'Basic', 'Varied timbres', 'Wider and faster', 'Less context, 3 listens', 'Master: 2 listens'],
 };
 export const MAX_LEVEL = 5;

@@ -56,5 +56,5 @@ export const degreeBySemis = (s: number) => DEGREES.find((d) => d.semis === ((s 
 
 /** Romanized solfege for Russian UI (movable do) */
 export const SOLF_RU: Record<string, string> = {
-  Do: 'до', Ra: 'ра', Re: 'ре', Me: 'ме', Mi: 'ми', Fa: 'фа', Fi: 'фи', Sol: 'соль', Le: 'ле', La: 'ля', Te: 'те', Ti: 'ти',
+  Do: 'до', Ra: 'ра', Re: 'ре', Me: 'ме', Mi: 'ми', Fa: 'фа', Fi: 'фи', Sol: 'соль', Le: 'ле', La: 'ля', Te: 'те', Ti: 'си',
 };

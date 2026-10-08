@@ -1,17 +1,21 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { audio } from './audio/engine';
 import { TopBar } from './components/TopBar';
 import { Tab, useNav } from './game/nav';
 import { useStore } from './game/store';
+import { useUpdate } from './game/updates';
 import { TKey, useT } from './i18n';
-import { ArcadeScreen } from './screens/ArcadeScreen';
+
 import { Onboarding } from './screens/Onboarding';
 import { PathScreen } from './screens/PathScreen';
-import { PracticeScreen } from './screens/PracticeScreen';
-import { ReferenceScreen } from './screens/ReferenceScreen';
+
 import { Session } from './screens/Session';
-import { SettingsScreen } from './screens/SettingsScreen';
-import { StatsScreen } from './screens/StatsScreen';
+// secondary screens load on demand to keep the first load small
+const ArcadeScreen = lazy(() => import('./screens/ArcadeScreen').then((m) => ({ default: m.ArcadeScreen })));
+const PracticeScreen = lazy(() => import('./screens/PracticeScreen').then((m) => ({ default: m.PracticeScreen })));
+const ReferenceScreen = lazy(() => import('./screens/ReferenceScreen').then((m) => ({ default: m.ReferenceScreen })));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
+const StatsScreen = lazy(() => import('./screens/StatsScreen').then((m) => ({ default: m.StatsScreen })));
 
 const TABS: { id: Tab; icon: string; label: TKey }[] = [
   { id: 'path', icon: '🗺️', label: 'tabPath' },
@@ -28,6 +32,7 @@ export function App() {
   const volume = useStore((s) => s.settings.volume);
   const lang = useStore((s) => s.settings.lang);
   const { tab, screen, setTab } = useNav();
+  const update = useUpdate();
 
   useEffect(() => {
     audio.setInstrument(instrument);
@@ -47,18 +52,33 @@ export function App() {
 
   if (!onboarded) return <Onboarding />;
   if (screen.name === 'session') return <Session key={screen.key} spec={screen.spec} />;
-  if (screen.name === 'reference') return <ReferenceScreen />;
+  if (screen.name === 'reference')
+    return (
+      <Suspense fallback={null}>
+        <ReferenceScreen />
+      </Suspense>
+    );
 
   return (
     <div className="shell">
       <TopBar />
       <div className="content" key={tab}>
-        {tab === 'path' && <PathScreen />}
-        {tab === 'practice' && <PracticeScreen />}
-        {tab === 'arcade' && <ArcadeScreen />}
-        {tab === 'stats' && <StatsScreen />}
-        {tab === 'settings' && <SettingsScreen />}
+        <Suspense fallback={null}>
+          {tab === 'path' && <PathScreen />}
+          {tab === 'practice' && <PracticeScreen />}
+          {tab === 'arcade' && <ArcadeScreen />}
+          {tab === 'stats' && <StatsScreen />}
+          {tab === 'settings' && <SettingsScreen />}
+        </Suspense>
       </div>
+      {update.ready && (
+        <div className="update-toast" role="status">
+          <span>✨ {lang === 'ru' ? 'Доступна новая версия' : 'New version available'}</span>
+          <button className="btn primary small" onClick={() => update.apply?.()}>
+            {lang === 'ru' ? 'Обновить' : 'Update'}
+          </button>
+        </div>
+      )}
       <nav className="bottom-nav">
         {TABS.map((x) => (
           <button key={x.id} className={tab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>
