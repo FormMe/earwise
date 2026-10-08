@@ -258,7 +258,7 @@ export const useStore = create<State>()(
         const totals = {
           ...st.totals,
           sessions: st.totals.sessions + 1,
-          perfect: st.totals.perfect + (r.total >= 5 && r.correct === r.total ? 1 : 0),
+          perfect: st.totals.perfect + (r.mode === 'lesson' && r.total >= 5 && r.correct === r.total ? 1 : 0),
           bestCombo: Math.max(st.totals.bestCombo, r.maxCombo),
           kinds: [...new Set([...st.totals.kinds, ...r.kinds])],
         };

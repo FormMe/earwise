@@ -2386,3 +2386,25 @@ h2 {
   color: var(--muted);
   line-height: 1.4;
 }
+
+/* very narrow phones (320px) */
+.ach-grid {
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+}
+.seg {
+  flex-wrap: wrap;
+}
+.seg button {
+  white-space: normal;
+}
+@media (max-width: 360px) {
+  .mmap-cells {
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  }
+  .mmap-cell {
+    font-size: 10px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

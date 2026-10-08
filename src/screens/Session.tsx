@@ -75,6 +75,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const playToken = useRef(0);
   const introRef = useRef(!!spec.intro);
   const playsLeftRef = useRef<number | null>(spec.replays ?? null);
+  /** when the current question appeared: taps in the first moments are the tail of a double tap */
+  const shownAt = useRef(0);
+  const tooSoon = () => performance.now() - shownAt.current < 350;
   const phaseRef = useRef<'answer' | 'feedback' | 'done'>('answer');
   const prevKey = useRef<string | undefined>(undefined);
   const nextTimer = useRef<number | null>(null);
@@ -189,6 +192,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
   const showQuestion = useCallback(
     (question: Question) => {
+      shownAt.current = performance.now();
       playsLeftRef.current = spec.replays ?? null;
       setPlaysLeft(playsLeftRef.current);
       phaseRef.current = 'answer';
@@ -383,7 +387,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       if (c?.audio) play(c.audio);
       return;
     }
-    if (phase !== 'answer') return;
+    if (phase !== 'answer' || tooSoon()) return;
     if (q.input === 'sequence') {
       if (c?.audio) play(c.audio);
       if (picked.length < q.answer.length) setPicked([...picked, id]);
@@ -399,7 +403,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       play([{ t: 0, d: 0.9, midi }]);
       return;
     }
-    if (!q.choices.some((c) => c.id === id)) return;
+    if (!q.choices.some((c) => c.id === id) || tooSoon()) return;
     judge([id]);
   };
 
@@ -411,6 +415,11 @@ export function Session({ spec }: { spec: SessionSpec }) {
   // keyboard shortcuts for desktop
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && (showHelp || askQuit)) {
+        setShowHelp(false);
+        setAskQuit(false);
+        return;
+      }
       if (!q || phase === 'done' || q.input === 'rhythm' || q.input === 'pulse' || showIntro || showHelp || askQuit || e.repeat) return;
       // a focused button would also react to Enter/Space and answer the next question
       if ((e.key === 'Enter' || e.code === 'Space') && (e.target as HTMLElement)?.closest?.('button')) e.preventDefault();
@@ -584,7 +593,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
             {Math.round(correct)}/{total}
           </div>
         ) : null}
-        {spec.blocks && (
+        {spec.blocks && phase === 'answer' && (
           <div className="pill">
             {settings.lang === 'ru' ? 'Раздел' : 'Unit'} {Math.min(block.current.i + 1, spec.blocks.length)} · {block.current.n + (phase === 'answer' ? 1 : 0)}/{BLOCK}
           </div>
@@ -721,7 +730,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         )}
         {phase === 'answer' && q.input !== 'sing' && (
           <div className="dk-row">
-            <button className="btn ghost small" onClick={() => judge(['?'], false, true)}>
+            <button className="btn ghost small" onClick={() => !tooSoon() && judge(['?'], false, true)}>
               🤷 {t('dontKnow')}
             </button>
             {spec.blocks && (

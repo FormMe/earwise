@@ -31,7 +31,7 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
   const acc = total ? Math.round((correct / total) * 100) : 0;
   const [shownStars, setShownStars] = useState(0);
   const isLesson = spec.mode === 'lesson';
-  const passed = placed != null ? placed > 0 : !isLesson || outcome.stars > 0;
+  const passed = placed != null ? placed > 0 : isLesson ? outcome.stars > 0 : correct > 0;
   const arcade = spec.mode === 'blitz' || spec.mode === 'survival';
 
   useEffect(() => {

@@ -131,10 +131,10 @@ export function SettingsScreen() {
         </Row>
         <Row label={t('goal')}>
           {seg('dailyGoal', [
-            { v: 30, l: '~5 мин' },
-            { v: 50, l: '~10 мин' },
-            { v: 100, l: '~15 мин' },
-            { v: 200, l: '~25 мин' },
+            { v: 30, l: `~5 ${s.lang === 'ru' ? 'мин' : 'min'}` },
+            { v: 50, l: `~10 ${s.lang === 'ru' ? 'мин' : 'min'}` },
+            { v: 100, l: `~15 ${s.lang === 'ru' ? 'мин' : 'min'}` },
+            { v: 200, l: `~25 ${s.lang === 'ru' ? 'мин' : 'min'}` },
           ])}
         </Row>
       </div>

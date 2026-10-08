@@ -158,6 +158,9 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
         <button className="btn primary big" onClick={start}>
           {t('micStart')}
         </button>
+        <button className="btn ghost small" onClick={() => finish(false)}>
+          {t('singSkip')}
+        </button>
       </div>
     );
   if (status === 'denied')

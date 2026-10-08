@@ -132,7 +132,9 @@ function genInterval(cfg: Extract<ExerciseConfig, { kind: 'interval' }>, ctx: Ge
   const choices: Choice[] = [...cfg.set]
     .sort((a, b) => a - b)
     .map((sm) => ({ id: String(sm), label: short(sm), sub: name(sm), audio: intervalEvents(root, sm, dir, ctx.tempo) }));
-  const songs = dir === 'down' ? def.down : def.up;
+  // Russian song titles only make sense in the Russian UI
+  const allSongs = dir === 'down' ? def.down : def.up;
+  const songs = ctx.lang === 'ru' ? allSongs : allSongs?.filter((x) => !/[а-яё]/i.test(x));
   const dirLabel = { up: tr(ctx, 'восходящий', 'ascending'), down: tr(ctx, 'нисходящий', 'descending'), harm: tr(ctx, 'гармонический', 'harmonic') }[dir];
   const prompt =
     cfg.dirs.length > 1
@@ -155,9 +157,9 @@ function genInterval(cfg: Extract<ExerciseConfig, { kind: 'interval' }>, ctx: Ge
     itemKeys: [`int:${s}:${dir}`],
     answerLabel: name(s),
     explain:
-      songs && dir !== 'harm' && ctx.lang === 'ru'
+      songs?.length && dir !== 'harm' && ctx.lang === 'ru'
         ? `🎵 Как в: ${songs.join(', ')}`
-        : songs && dir !== 'harm'
+        : songs?.length && dir !== 'harm'
           ? `🎵 Like: ${songs.join(', ')}`
           : undefined,
   };
