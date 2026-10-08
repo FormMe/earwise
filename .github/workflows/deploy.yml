@@ -50,4 +50,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
           publish_branch: gh-pages
-          force_orphan: true
+          # keep earlier hashed files: a page still running the previous version can finish loading its screens
+          keep_files: true

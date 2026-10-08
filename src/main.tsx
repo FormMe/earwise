@@ -15,14 +15,25 @@ window.addEventListener('error', (e) => console.error('EarWise', e.error ?? e.me
 // service workers are unavailable inside embedded frames (e.g. hosted previews)
 try {
   if (window.self === window.top && 'serviceWorker' in navigator) {
-    const update = registerSW({
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    const reload = () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+    // a new version activated: reload into it now, or right after the current lesson
+    const applyNewVersion = () => {
+      if (useNav.getState().screen.name !== 'session') reload();
+      else useUpdate.setState({ ready: true, apply: reload });
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // the very first install also "changes" the controller: nothing to reload then
+      if (hadController) applyNewVersion();
+    });
+    registerSW({
       immediate: true,
-      // a new version is applied right away unless a lesson is in progress (then it waits for the lesson to end)
-      onNeedRefresh: () => {
-        const apply = () => void update(true);
-        if (useNav.getState().screen.name !== 'session') apply();
-        else useUpdate.setState({ ready: true, apply });
-      },
+      onNeedRefresh: applyNewVersion,
       // installed apps can stay open for days: check for a new version whenever the app comes back
       onRegisteredSW: (_url, reg) => {
         if (!reg) return;

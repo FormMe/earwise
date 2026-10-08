@@ -13,13 +13,17 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // never reload in the middle of a lesson: the app applies updates on its own screens
       registerType: 'prompt',
       // icons are already matched by globPatterns
       includeManifestIcons: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest}'],
         globIgnores: ['**/nunito-vietnamese*', '**/nunito-latin-ext*', '**/nunito-cyrillic-ext*'],
+        // a new version takes over at once (an old one could otherwise keep it waiting forever);
+        // the page reloads into it outside a lesson — see main.tsx
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
       manifest: {
         id: './',
