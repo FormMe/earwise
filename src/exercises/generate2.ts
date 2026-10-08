@@ -205,7 +205,8 @@ export function genFullDictation(cfg: Extract<ExerciseConfig, { kind: 'fullDicta
   let cells = generateBeatRhythm(ctx.rng, cfg.level, beats);
   // keep it singable: at most ~2 notes per beat on average
   const count = () => cellsToDurations(cells).filter((x) => x > 0).length;
-  while (count() > beats * 1.6) cells = generateBeatRhythm(ctx.rng, cfg.level, beats);
+  // keep long dictations manageable: at most ~1.6 notes per beat and 16 notes overall
+  while (count() > Math.min(beats * 1.6, 16)) cells = generateBeatRhythm(ctx.rng, cfg.level, beats);
   const durs = cellsToDurations(cells);
   const n = count();
   const pool = cfg.set.map(melSemis);

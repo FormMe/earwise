@@ -100,7 +100,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
   // per-session state that shapes question choice
   const seen = useRef<Record<string, number>>({});
-  const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number }[]>([]);
+  const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number; review?: boolean }[]>([]);
   const held = useRef<{ tonic: number; left: number } | null>(null);
   // placement test progress
   const block = useRef({ i: 0, n: 0, ok: 0, dk: 0, fails: 0, placed: [] as string[] });
@@ -122,6 +122,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         retries.current = retries.current.filter((r) => r !== due);
         cfg = due.cfg;
         forced = due.key;
+        review = !!due.review;
       } else if (spec.blocks) {
         cfg = pick(rng.current, spec.blocks[Math.min(block.current.i, spec.blocks.length - 1)].configs);
       } else if (spec.escalate) {
@@ -291,7 +292,11 @@ export function Session({ spec }: { spec: SessionSpec }) {
       if (newlyMastered) setMastered((m) => m + newlyMastered);
       if (ok) q.itemKeys.forEach((k) => (seen.current[k] = (seen.current[k] ?? 0) + 1));
       else if (q.cfg && (q.input === 'choice' || q.input === 'keys') && spec.mode !== 'blitz' && spec.mode !== 'survival' && !spec.blocks)
-        retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at: Math.min(idx + 2 + Math.floor(Math.random() * 3), (spec.count ?? Infinity) - 1) });
+        // bring a miss back after a short gap — unless the lesson is about to end (it's on the due list anyway)
+        (() => {
+          const at = idx + 2 + Math.floor(Math.random() * 3);
+          if (spec.count == null || total + (at - idx) < spec.count) retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at, review: !!q.review });
+        })();
       if (q.input === 'sing' && ok) recordSung();
 
       const newCombo = ok ? combo + 1 : 0;
@@ -329,6 +334,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
       // resolution / follow-up audio
       let wait = ok ? 650 : 0;
+      if (!ok && q.afterWrong) later(() => play(q.afterWrong!), settings.sfx ? 450 : 200);
       if (q.afterAnswer) {
         const dur = Math.max(...q.afterAnswer.map((e) => e.t + e.d));
         later(() => play(q.afterAnswer!), settings.sfx ? 350 : 150);
@@ -338,7 +344,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       if (spec.blocks) {
         const b = block.current;
         b.n++;
-        if (ok || graded >= 0.8) b.ok++;
+        if (ok) b.ok++;
         if (dontKnow) b.dk++;
         // a unit is credited only for near-perfect answers; two "don't know"s end it at once
         if (b.n >= BLOCK || b.dk >= 2 || b.n - b.ok > BLOCK - BLOCK_PASS) {
@@ -480,11 +486,17 @@ export function Session({ spec }: { spec: SessionSpec }) {
         onDrill={() => {
           // focus on the item missed most often, inside its own exercise
           const tally = new Map<string, { n: number; m: Mistake }>();
-          for (const m of mistakes) {
-            const k = m.q.itemKeys[0];
+          const add = (k: string, m: Mistake) => {
             const e = tally.get(k) ?? { n: 0, m };
             e.n++;
             tally.set(k, e);
+          };
+          for (const m of mistakes) {
+            if (m.q.input === 'sequence' && m.user[0] !== '?') {
+              // count the slots that were actually wrong, not the first one
+              const g = m.q.given ?? 0;
+              m.q.answer.slice(g).forEach((a, i) => m.user[i + g] !== a && add(m.q.itemKeys[i], m));
+            } else add(m.q.itemKeys[0], m);
           }
           const top = [...tally.entries()].sort((a, b) => b[1].n - a[1].n)[0];
           const cfg = (top?.[1].m.q as SQuestion | undefined)?.cfg;
@@ -767,9 +779,12 @@ export function Session({ spec }: { spec: SessionSpec }) {
               </dl>
             </details>
             <div className="row gap wrap">
-              <button className="chip" onClick={() => play(q.stimulus)}>
-                ▶ {t('introExample')}
-              </button>
+              {/* at higher crowns the number of listens is limited: no free replay from here */}
+              {spec.replays == null && (
+                <button className="chip" onClick={() => play(q.stimulus)}>
+                  ▶ {t('introExample')}
+                </button>
+              )}
               {q.choices
                 .filter((c) => c.audio)
                 .slice(0, 8)

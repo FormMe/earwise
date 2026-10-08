@@ -17,7 +17,7 @@ interface Host {
   use(name: string): Promise<unknown>;
 }
 
-const KEYS = ['settings', 'onboarded', 'xp', 'days', 'streak', 'freezes', 'lessons', 'items', 'achievements', 'highs', 'totals', 'dailyDone', 'resetGen'] as const;
+const KEYS = ['settings', 'onboarded', 'xp', 'days', 'streak', 'freezes', 'lessons', 'items', 'achievements', 'highs', 'totals', 'dailyDone', 'resetGen', 'settingsAt'] as const;
 /** bump together with the store's persist version when lesson ids change */
 const SCHEMA = 2;
 
@@ -47,8 +47,19 @@ export function mergeState(local: S, remote: S): S {
   if (!remote || !Object.keys(remote).length) return local;
   const lg = local.resetGen ?? 0;
   const rg = remote.resetGen ?? 0;
-  if (rg > lg) return { ...remote, settings: { ...remote.settings, ...local.settings } };
+  // settings: the newer change wins; a fresh install (not onboarded yet) takes the saved ones
+  const settings = !local.onboarded || (remote.settingsAt ?? 0) > (local.settingsAt ?? 0) ? { ...local.settings, ...remote.settings } : local.settings;
+  const settingsAt = Math.max(local.settingsAt ?? 0, remote.settingsAt ?? 0);
+  if (rg > lg) return { ...remote, settings, settingsAt };
   if (lg > rg) return local;
+  const ls = local.streak ?? {};
+  const rs = remote.streak ?? {};
+  const remoteLater = (rs.last ?? '') > (ls.last ?? '');
+  const later = remoteLater ? rs : ls;
+  const earlier = remoteLater ? ls : rs;
+  // a run on the other device that the later one continues by exactly a day is kept
+  const dayGap = later.last && earlier.last ? Math.round((Date.parse(later.last) - Date.parse(earlier.last)) / 864e5) : NaN;
+  const count = dayGap === 1 ? Math.max(later.count ?? 0, (earlier.count ?? 0) + 1) : later.count;
   const items = { ...(local.items ?? {}) };
   for (const [k, v] of Object.entries<S>(remote.items ?? {})) if (!items[k] || (v.t ?? 0) > (items[k].t ?? 0)) items[k] = v;
   const lessons = { ...(local.lessons ?? {}) };
@@ -58,10 +69,10 @@ export function mergeState(local: S, remote: S): S {
       ? { stars: Math.max(x.stars, v.stars), best: Math.max(x.best, v.best), plays: Math.max(x.plays, v.plays), level: Math.max(x.level ?? 0, v.level ?? 0) || undefined }
       : v;
   }
-  const ls = local.streak ?? {};
-  const rs = remote.streak ?? {};
   return {
     ...local,
+    settings,
+    settingsAt,
     onboarded: local.onboarded || remote.onboarded,
     xp: Math.max(local.xp ?? 0, remote.xp ?? 0),
     items,
@@ -70,8 +81,9 @@ export function mergeState(local: S, remote: S): S {
     achievements: { ...(remote.achievements ?? {}), ...(local.achievements ?? {}) },
     highs: maxMap(local.highs, remote.highs),
     totals: { ...maxMap(local.totals, remote.totals), kinds: [...new Set([...(local.totals?.kinds ?? []), ...(remote.totals?.kinds ?? [])])] },
-    streak: (rs.last ?? '') > (ls.last ?? '') ? { ...rs, best: Math.max(rs.best ?? 0, ls.best ?? 0) } : { ...ls, best: Math.max(rs.best ?? 0, ls.best ?? 0) },
-    freezes: Math.max(local.freezes ?? 0, remote.freezes ?? 0),
+    streak: { ...later, count, best: Math.max(rs.best ?? 0, ls.best ?? 0, count ?? 0) },
+    // a used freeze must not come back: take the side that played last
+    freezes: remoteLater ? remote.freezes ?? 0 : local.freezes ?? 0,
     dailyDone: (remote.dailyDone ?? '') > (local.dailyDone ?? '') ? remote.dailyDone : local.dailyDone,
   };
 }
@@ -107,7 +119,9 @@ async function sync() {
   };
   /** read the cloud, merge with this device, apply locally and write the result back */
   const reconcile = async () => {
-    const merged = mergeState(snapshot(), await remoteState());
+    // read the cloud first, THEN snapshot: progress made during the request must not be lost
+    const remote = await remoteState();
+    const merged = mergeState(snapshot(), remote);
     applying = true;
     useStore.setState(merged as Partial<ReturnType<typeof useStore.getState>>);
     applying = false;

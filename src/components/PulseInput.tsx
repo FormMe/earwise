@@ -19,13 +19,19 @@ export function PulseInput({ pulse, done, onResult }: Props) {
   const taps = useRef<number[]>([]);
   const timer = useRef<number | null>(null);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-    audio.stopAll();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      if (timer.current) clearTimeout(timer.current);
+      audio.stopAll();
+    };
   }, []);
 
   const go = async () => {
-    await audio.ready();
+    await Promise.race([audio.ready(), new Promise((r) => setTimeout(r, 600))]);
+    if (!alive.current) return;
     taps.current = [];
     setHits(null);
     const ctx = audio.ensure();

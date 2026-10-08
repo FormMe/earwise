@@ -52,13 +52,21 @@ export class MicPitch {
   private analyser: AnalyserNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private buf = new Float32Array(2048);
+  private tok = 0;
 
   async start() {
     const ctx = audio.ensure();
     this.stop();
-    this.stream = await navigator.mediaDevices.getUserMedia({
+    const tok = this.tok;
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
+    // a newer start/stop happened while we waited for permission: release this stream
+    if (tok !== this.tok) {
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error('superseded');
+    }
+    this.stream = stream;
     this.source = ctx.createMediaStreamSource(this.stream);
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 2048;
@@ -72,6 +80,7 @@ export class MicPitch {
   }
 
   stop() {
+    this.tok++;
     this.stream?.getTracks().forEach((t) => t.stop());
     this.source?.disconnect();
     this.stream = null;

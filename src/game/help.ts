@@ -95,6 +95,7 @@ export const GLOSSARY: { ru: [string, string]; en: [string, string] }[] = [
   { ru: ['Такт', 'Группа долей (обычно 4: «раз-два-три-четыре»).'], en: ['Bar', 'A group of beats (usually 4).'] },
   { ru: ['Тоника', '«Дом» мелодии: нота, на которой музыке спокойно и хочется закончить.'], en: ['Tonic', 'Home: the note where the music feels at rest.'] },
   { ru: ['Ступень', 'Номер ноты, считая от дома: дом = 1, следующая нота гаммы = 2 и т.д. Ступени поют как «до-ре-ми» от дома — в любой тональности.'], en: ['Scale degree', 'A note’s number counted from home (1, 2, 3…).'] },
+  { ru: ['Хроматические ступени', 'Ступени с ♭ или ♯ — пониженные или повышенные: ♭7 («те») — пониженная си, ♯4 («фи») — повышенная фа.'], en: ['Chromatic degrees', 'Degrees with ♭ or ♯ are lowered or raised versions, e.g. ♭7 or ♯4.'] },
   { ru: ['Тональность', 'Набор нот вокруг одного «дома», например «Ре мажор».'], en: ['Key', 'The set of notes around one home, e.g. D major.'] },
   { ru: ['Каденция', 'Несколько аккордов, которые звучат как «точка» и задают дом. Перед вопросами про ступени играет именно она.'], en: ['Cadence', 'A few chords that sound like a full stop and set the key.'] },
   { ru: ['Интервал', 'Расстояние между двумя нотами (терция, квинта, октава…).'], en: ['Interval', 'The distance between two notes.'] },

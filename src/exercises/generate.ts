@@ -156,6 +156,7 @@ function genInterval(cfg: Extract<ExerciseConfig, { kind: 'interval' }>, ctx: Ge
     answer: [String(s)],
     itemKeys: [`int:${s}:${dir}`],
     answerLabel: name(s),
+    afterWrong: intervalEvents(root, s, dir, ctx.tempo),
     explain:
       songs?.length && dir !== 'harm' && ctx.lang === 'ru'
         ? `🎵 Как в: ${songs.join(', ')}`
@@ -177,8 +178,9 @@ function genChord(cfg: Extract<ExerciseConfig, { kind: 'chord' }>, ctx: GenCtx):
   const def = chordById(id);
   // big chords sound muddy low: keep their root higher
   const root = def.intervals.length > 3 ? randInt(ctx.rng, 55, 63) : randInt(ctx.rng, 50, 62);
-  // sus2/sus4, 6/m7 and add9 turn into each other when inverted, so they always stay in root position
-  const ambiguous = ['sus2', 'sus4', 'maj6', 'add9', 'dom9', 'min7', 'aug', 'dim7'].includes(id);
+  // inversions that would turn into another chord in the set (or are symmetric) stay in root position;
+  // min7 and maj6 share notes, so only one of them may be inverted when both are being drilled
+  const ambiguous = ['sus2', 'sus4', 'add9', 'dom9', 'aug', 'dim7'].includes(id) || (id === 'min7' && cfg.set.includes('maj6')) || (id === 'maj6' && cfg.set.includes('min7'));
   const inv = cfg.inversions && !ambiguous ? randInt(ctx.rng, 0, def.intervals.length - 1) : 0;
   const shape = invert(def.intervals, inv);
   const bass = root + def.intervals[inv] - (inv ? 12 : 0);
@@ -229,7 +231,7 @@ function genInversion(cfg: Extract<ExerciseConfig, { kind: 'inversion' }>, ctx: 
     stimulus: chordEvents(notes, ctx.tempo),
     alt: [{ label: tr(ctx, 'Арпеджио', 'Arpeggio'), events: chordEvents(notes, ctx.tempo, true) }],
     input: 'choice',
-    choices: invs.map((i) => ({ id: String(i), label: names[i], audio: chordEvents(voicing(i), ctx.tempo) })),
+    choices: invs.map((i) => ({ id: String(i), label: names[i], sub: ctx.lang === 'ru' ? (def.intervals.length > 3 ? INVERSION_NAMES.ruSeventh : INVERSION_NAMES.ruTriad)[i] : undefined, audio: chordEvents(voicing(i), ctx.tempo) })),
     answer: [String(inv)],
     itemKeys: [`inv:${inv}`],
     answerLabel: names[inv],
@@ -314,7 +316,7 @@ export function resolution(semis: number, minor: boolean): number[] {
   // altered notes resolve along their own tendency (♯4 up to 5, ♭6 down to 5, ♭7 down to 6…)
   if (!minor && CHROMATIC_RES[semis]) return CHROMATIC_RES[semis];
   if (minor) {
-    const MINOR_RES: Record<number, number[]> = { 11: [11, 12], 9: [9, 11, 12], 1: [1, 0], 4: [4, 3, 2, 0], 6: [6, 7, 8, 7] };
+    const MINOR_RES: Record<number, number[]> = { 11: [11, 12], 9: [9, 11, 12], 1: [1, 0], 4: [4, 3, 2, 0], 6: [6, 7, 5, 3, 2, 0] };
     if (MINOR_RES[semis]) return MINOR_RES[semis];
   }
   const scale = minor ? NAT_MINOR : MAJOR;
@@ -810,7 +812,7 @@ function genSing(cfg: Extract<ExerciseConfig, { kind: 'sing' }>, ctx: GenCtx): Q
   const lbl = ctx.lang === 'ru' ? def.ru : def.en;
   return {
     ...base,
-    prompt: tr(ctx, `Спой вверх от этой ноты: ${(def.acc ?? def.ru).toLowerCase()}`, `Sing a ${lbl.toLowerCase()} up from this note`),
+    prompt: tr(ctx, `Спой ${(def.acc ?? def.ru).toLowerCase()} вверх от этой ноты`, `Sing a ${lbl.toLowerCase()} up from this note`),
     stimulus: [{ t: 0, d: 1.4, midi: root }],
     alt: [{ label: tr(ctx, 'Подсказка', 'Hint'), events: intervalEvents(root, s, 'up', ctx.tempo) }],
     answer: [String(root + s)],

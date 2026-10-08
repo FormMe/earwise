@@ -7,6 +7,10 @@ import { startCloudSync } from './game/cloud';
 import { useUpdate } from './game/updates';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+// errors in promises and timers bypass the ErrorBoundary: at least log them
+window.addEventListener('unhandledrejection', (e) => console.error('EarWise', e.reason));
+window.addEventListener('error', (e) => console.error('EarWise', e.error ?? e.message));
+
 // service workers are unavailable inside embedded frames (e.g. hosted previews)
 try {
   if (window.self === window.top && 'serviceWorker' in navigator) {

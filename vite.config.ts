@@ -15,6 +15,8 @@ export default defineConfig({
     VitePWA({
       // never reload in the middle of a lesson: the app applies updates on its own screens
       registerType: 'prompt',
+      // icons are already matched by globPatterns
+      includeManifestIcons: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest}'],
         globIgnores: ['**/nunito-vietnamese*', '**/nunito-latin-ext*', '**/nunito-cyrillic-ext*'],

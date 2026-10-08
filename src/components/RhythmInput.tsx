@@ -22,6 +22,13 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
   const startPerf = useRef(0);
   const tapsRef = useRef<number[]>([]);
   const timers = useRef<number[]>([]);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const s16 = 60 / bpm / 4;
   const total16 = pattern.reduce((a, b) => a + Math.abs(b), 0);
   const beats = total16 / 4;
@@ -60,7 +67,9 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
 
   const listen = useCallback(async () => {
     setPhase('listening');
-    await audio.ready();
+    // resume() outside a tap may never settle on iOS: don't wait for it forever
+    await Promise.race([audio.ready(), new Promise((r) => setTimeout(r, 600))]);
+    if (!alive.current) return;
     const { startAt, beat } = schedule(true);
     timers.current.push(window.setTimeout(() => {
       setPhase((p) => (p === 'listening' ? 'ready' : p));
@@ -101,6 +110,7 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
 
   const startTapping = async () => {
     await audio.ready();
+    if (!alive.current) return;
     tapsRef.current = [];
     setTaps([]);
     setPhase('countin');

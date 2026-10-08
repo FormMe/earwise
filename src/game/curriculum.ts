@@ -85,7 +85,7 @@ export const UNITS: Unit[] = [
     ],
   },
   {
-    id: 'u2', icon: '🏠', color: '#22c3a6', ru: 'Тоника: до–ми–соль', en: 'Home: do–mi–sol',
+    id: 'u2', icon: '🏠', color: '#22c3a6', ru: 'Тоника: 1–3–5', en: 'Home: 1–3–5',
     descRu: 'Слышать ноты относительно «дома» — главный навык', descEn: 'Hearing notes relative to home — the key skill',
     lessons: [
       L('b1', 'Тоника и квинта', 'Tonic and fifth', { kind: 'degree', set: ['1', '5'] }, {
@@ -121,13 +121,13 @@ export const UNITS: Unit[] = [
   },
   {
     id: 'u3', icon: '✋', color: '#3fa9ff', ru: 'Пять ступеней', en: 'Five degrees',
-    descRu: 'До-ре-ми-фа-соль и первые диктанты с ритмом', descEn: 'Do to sol and first rhythmic dictations',
+    descRu: 'Ступени 1–5 и первые диктанты с ритмом', descEn: 'Do to sol and first rhythmic dictations',
     lessons: [
       L('c2', 'Соседи: 2, 3, 4', 'Neighbours: 2, 3, 4', { kind: 'degree', set: ['2', '3', '4'] }, {
         intro: { ru: '4 ступень (фа) тянется вниз к 3, 2 ступень — к 1. Эти «тяготения» и помогают узнавать ноты.', en: '4 pulls down to 3, 2 pulls to 1 — these pulls make notes recognisable.' },
       }),
       L('c1', 'Ступени 1–5', 'Degrees 1–5', { kind: 'degree', set: ['1', '2', '3', '4', '5'] }, {
-        intro: { ru: '4 ступень (фа) тянется вниз к 3, 2 ступень — к 1. Эти «тяготения» и помогают узнавать ноты.', en: '4 pulls down to 3, 2 pulls to 1 — these pulls make notes recognisable.' },
+        intro: { ru: 'Теперь все пять ступеней. 1, 3, 5 — устойчивые «опоры», 2 и 4 — неустойчивые, тянутся к соседям. Сначала реши: опора или нет?', en: 'Now all five degrees. 1, 3, 5 are stable; 2 and 4 lean to their neighbours.' },
       }),
       L('c3', 'В одной тональности', 'In one key', { kind: 'degree', set: ['1', '2', '3', '4', '5'], holdKey: true }),
       L('c4', 'Спой ступени 1–5', 'Sing degrees 1–5', { kind: 'sing', mode: 'degree', set: ['1', '2', '3', '4', '5'] }),
@@ -151,7 +151,7 @@ export const UNITS: Unit[] = [
         intro: { ru: '7 ступень (в русской традиции «си») — самая острая, она почти «впивается» в тонику сверху. 6 ступень мягко тянется к 5.', en: 'Degree 7 is the sharpest — it leans hard into the tonic. 6 sinks to 5.' },
       }),
       L('d1', 'Верх лада: 5–8', 'Upper degrees 5–8', { kind: 'degree', set: ['5', '6', '7', '8'] }, {
-        intro: { ru: '7 ступень (в русской традиции «си») — самая острая, она почти «впивается» в тонику сверху. 6 ступень мягко тянется к 5.', en: 'Degree 7 is the sharpest — it leans hard into the tonic. 6 sinks to 5.' },
+        intro: { ru: 'Верх лада целиком: 5 — опора, 6 мягко опускается к 5, 7 (си) рвётся вверх к 8. 8 — это снова дом.', en: 'The whole top: 5 is stable, 6 sinks to 5, 7 leaps up to 8 — home again.' },
       }),
       L('d3', 'Все 7 ступеней', 'All 7 degrees', { kind: 'degree', set: MAJ }),
       L('d4', 'Ниже тоники: 5̣ 6̣ 7̣', 'Below the tonic: 5̣ 6̣ 7̣', { kind: 'degree', set: ['5,', '6,', '7,', '1', '2', '3'] }, {
@@ -413,7 +413,7 @@ export const UNITS: Unit[] = [
     descRu: 'Длинные диктанты и гармония целых песен', descEn: 'Long dictations and whole-song harmony',
     lessons: [
       L('n1', 'Диктант: 8 нот', 'Dictation: 8 notes', { kind: 'melody', set: MAJ_FULL, length: 8, rhythmic: true, maxLeap: 9 }, { q: 5 }),
-      L('n1b', 'Полный диктант: 4 такта', 'Full dictation: 4 bars', { kind: 'fullDictation', set: MAJ_FULL, bars: 4, level: 2 }, { q: 4 }),
+      L('n1b', 'Полный диктант: 4 такта', 'Full dictation: 4 bars', { kind: 'fullDictation', set: MAJ_FULL, bars: 4, level: 1 }, { q: 4 }),
       L('n2', 'Минорный диктант с вводным тоном', 'Minor dictation with leading tone', { kind: 'melody', set: ['5,', '7,', '1', '2', 'b3', '4', '5', 'b6', 'b7', '7', '8'], length: 7, minor: true, rhythmic: true }, { q: 5 }),
       L('n2v', 'Двухголосие', 'Two-voice dictation', { kind: 'twoVoice', set: ['I', 'ii', 'IV', 'V', 'vi'], length: 4 }, {
         q: 5,
@@ -491,7 +491,9 @@ export function questionCount(l: Lesson): number {
 
 export function passFor(l: Lesson): number {
   if (l.pass) return l.pass;
-  return SEQ_KINDS.has(l.cfg.kind) || ['sing', 'rhythm', 'pulse'].includes(l.cfg.kind) ? 0.75 : 0.8;
+  // dictations get partial credit per note, so their bar is higher
+  if (SEQ_KINDS.has(l.cfg.kind)) return 0.85;
+  return ['sing', 'rhythm', 'pulse'].includes(l.cfg.kind) ? 0.75 : 0.8;
 }
 
 export function isUnlocked(lessonId: string, lessons: Record<string, { stars: number }>, unlockAll: boolean) {

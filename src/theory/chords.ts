@@ -40,5 +40,8 @@ export function invert(intervals: number[], inversion: number): number[] {
 
 export const INVERSION_NAMES = {
   ru: ['Основной вид', '1-е обращение', '2-е обращение', '3-е обращение'],
+  /** classical Russian names: [triad names, seventh-chord names] */
+  ruTriad: ['Трезвучие', 'Секстаккорд', 'Квартсекстаккорд'],
+  ruSeventh: ['Септаккорд', 'Квинтсекстаккорд', 'Терцквартаккорд', 'Секундаккорд'],
   en: ['Root position', '1st inversion', '2nd inversion', '3rd inversion'],
 };

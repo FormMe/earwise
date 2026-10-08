@@ -70,6 +70,8 @@ export interface Question {
   itemKeys: string[];
   given?: number;
   afterAnswer?: NoteEvent[];
+  /** replayed automatically only after a wrong answer (the correct version) */
+  afterWrong?: NoteEvent[];
   /** for sequences: how a sequence of choice ids sounds (to compare "yours vs correct") */
   answerAudio?: NoteEvent[];
   renderSequence?: (ids: string[]) => NoteEvent[];

@@ -119,8 +119,9 @@ export function voiceChord(tonicMidi: number, roman: RomanDef, prev?: number[], 
   let bass = 36 + pc(bassPc - 36);
   if (bass < 40) bass += 12;
   // Upper voices live in G3..F5 area
-  const LO = 55;
-  const HI = 77;
+  // a cadence that must end with a given top note gets a little more room, so it can be reached by step
+  const LO = topPc != null ? 52 : 55;
+  const HI = topPc != null ? 79 : 77;
   let candidates: number[][] = [];
   for (let base = LO; base <= HI - 7; base++) {
     if (!pcs.includes(pc(base))) continue;
@@ -171,8 +172,9 @@ function voiceDistance(a: number[], b: number[]) {
 }
 
 /** Heavy cost for parallel fifths/octaves between any two voices (classical voice-leading rule). */
-function parallelPenalty(a: number[], b: number[]) {
-  if (a.length !== b.length) return 0;
+function parallelPenalty(a: number[], b: number[]): number {
+  // chords of different sizes (triad <-> 7th): still guard the outer voices
+  if (a.length !== b.length) return a.length < 2 || b.length < 2 ? 0 : parallelPenalty([a[0], a[a.length - 1]], [b[0], b[b.length - 1]]);
   let pen = 0;
   for (let i = 0; i < a.length; i++)
     for (let j = i + 1; j < a.length; j++) {
@@ -187,9 +189,21 @@ function parallelPenalty(a: number[], b: number[]) {
 export function voiceProgression(tonicMidi: number, romans: string[], inversions?: number[], opts: { start?: number[]; endTopPc?: number } = {}): number[][] {
   const out: number[][] = [];
   let prev: number[] | undefined = opts.start;
+  const end = opts.endTopPc;
   for (const [i, id] of romans.entries()) {
-    const top = i === romans.length - 1 ? opts.endTopPc : undefined;
-    const v = voiceChord(tonicMidi, romanById(id), prev, inversions?.[i] ?? 0, top);
+    let v: number[] | undefined;
+    if (end != null && i >= romans.length - 3 && i < romans.length - 1) {
+      // set up a stepwise arrival on the tonic: e.g. 1 → 7 → 1 or 3 → 2 → 1 on top of the last chords
+      const tops = i === romans.length - 2 ? [end - 1, end + 2, end] : [end, end + 4, end + 2];
+      for (const t of tops) {
+        const c = voiceChord(tonicMidi, romanById(id), prev, inversions?.[i] ?? 0, t);
+        if ((((c[c.length - 1] - t) % 12) + 12) % 12 === 0) {
+          v = c;
+          break;
+        }
+      }
+    }
+    v ??= voiceChord(tonicMidi, romanById(id), prev, inversions?.[i] ?? 0, i === romans.length - 1 ? end : undefined);
     out.push(v);
     prev = v;
   }

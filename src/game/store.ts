@@ -74,6 +74,8 @@ export interface FinishOutcome {
 
 interface State {
   settings: Settings;
+  /** when settings were last changed (for cloud merge) */
+  settingsAt?: number;
   onboarded: boolean;
   xp: number;
   days: Record<string, number>;
@@ -170,7 +172,7 @@ export const useStore = create<State>()(
       settings: initialSettings(),
       ...initialProgress(),
 
-      setSettings: (s) => set({ settings: { ...get().settings, ...s } }),
+      setSettings: (s) => set({ settings: { ...get().settings, ...s }, settingsAt: Date.now() }),
       setOnboarded: () => set({ onboarded: true }),
 
       recordAnswer: (keys, correct, countTotals = true) => {

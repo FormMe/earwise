@@ -244,7 +244,7 @@ class AudioEngine {
     // the recorder only plays single notes in its own register; anything else falls back to piano
     const pitched = events.filter((e) => !e.drum).flatMap((e) => (Array.isArray(e.midi) ? e.midi : [e.midi]));
     const lowest = pitched.length ? Math.min(...pitched) : 127;
-    const instFor = (e: NoteEvent, n: number) => e.inst ?? (this.instrument === 'recorder' && (n > 1 || lowest < 60) ? 'piano' : this.instrument);
+    const instFor = (e: NoteEvent, n: number) => e.inst ?? (this.instrument === 'recorder' && (n > 1 || lowest < 65) ? 'piano' : this.instrument);
     // render every note first, then schedule — otherwise slow first renders smear chords and rhythms
     for (const e of events) {
       if (e.drum) continue;
