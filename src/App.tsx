@@ -43,6 +43,10 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
+  // a waiting update is applied as soon as the learner leaves the lesson
+  useEffect(() => {
+    if (update.ready && screen.name !== 'session') update.apply?.();
+  }, [update, screen.name]);
   // a fresh start (after onboarding) opens the path from the top
   useEffect(() => {
     if (onboarded) window.scrollTo(0, 0);

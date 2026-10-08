@@ -5,6 +5,7 @@ import { App } from './App';
 import { registerSW } from 'virtual:pwa-register';
 import { startCloudSync } from './game/cloud';
 import { useUpdate } from './game/updates';
+import { useNav } from './game/nav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // errors in promises and timers bypass the ErrorBoundary: at least log them
@@ -16,8 +17,19 @@ try {
   if (window.self === window.top && 'serviceWorker' in navigator) {
     const update = registerSW({
       immediate: true,
-      // don't reload mid-lesson: the app shows an "update" button on its main screens
-      onNeedRefresh: () => useUpdate.setState({ ready: true, apply: () => void update(true) }),
+      // a new version is applied right away unless a lesson is in progress (then it waits for the lesson to end)
+      onNeedRefresh: () => {
+        const apply = () => void update(true);
+        if (useNav.getState().screen.name !== 'session') apply();
+        else useUpdate.setState({ ready: true, apply });
+      },
+      // installed apps can stay open for days: check for a new version whenever the app comes back
+      onRegisteredSW: (_url, reg) => {
+        if (!reg) return;
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') void reg.update().catch(() => {});
+        });
+      },
     });
   }
 } catch {

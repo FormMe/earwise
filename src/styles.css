@@ -265,6 +265,7 @@ h3 {
   z-index: 20;
   display: flex;
   align-items: center;
+  gap: 10px;
   justify-content: space-between;
   padding: calc(10px + var(--safe-t)) 16px 10px;
   background: color-mix(in srgb, var(--bg) 94%, transparent);
@@ -2579,4 +2580,26 @@ h2 {
 }
 .sync-msg {
   font-weight: 700;
+}
+
+.topbar > .logo {
+  flex: none;
+  border-radius: 9px;
+}
+.topbar > .tb-level {
+  margin-right: auto;
+  min-width: 0;
+}
+.topbar .lvl-info {
+  min-width: 0;
+}
+.topbar .lvl-bar {
+  width: auto;
+  max-width: 110px;
+  min-width: 56px;
+}
+@media (max-width: 359px) {
+  .topbar > .logo {
+    display: none;
+  }
 }

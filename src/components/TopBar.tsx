@@ -1,3 +1,4 @@
+import { Logo } from './Logo';
 import { currentStreak, levelFromXp, todayStr, useStore, xpForLevel } from '../game/store';
 import { rankFor, useLang, useT } from '../i18n';
 
@@ -37,6 +38,7 @@ export function TopBar() {
   const doneToday = today > 0;
   return (
     <header className="topbar">
+      <Logo size={32} />
       <div className="tb-level" title={rankFor(level, lang)}>
         <div className="lvl-badge">{level}</div>
         <div className="lvl-info">
