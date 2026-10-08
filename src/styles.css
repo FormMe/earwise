@@ -2159,3 +2159,33 @@ input[type='range'] {
   width: 8px;
   height: 8px;
 }
+
+.help-btn {
+  font-weight: 900;
+  font-size: 18px;
+  background: var(--card2);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+.dk-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.modal.help {
+  max-width: 420px;
+}
+.modal.help h3 {
+  margin: 0;
+}
+.modal.help p {
+  font-weight: 500;
+  line-height: 1.45;
+}
+.row.wrap {
+  flex-wrap: wrap;
+}

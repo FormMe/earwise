@@ -190,3 +190,16 @@ describe('levels & placement', () => {
     expect(q.renderSequence!(q.answer).length).toBe(n);
   });
 });
+
+import { KIND_HELP } from '../game/help';
+import { KIND_META, itemCount } from '../game/curriculum';
+
+describe('honest answering', () => {
+  it('every exercise type has a help card', () => {
+    for (const k of Object.keys(KIND_META)) expect(KIND_HELP[k as keyof typeof KIND_HELP]).toBeTruthy();
+  });
+  it('placement only uses guess-resistant questions', () => {
+    for (const b of placementSpec('ru').blocks!)
+      for (const c of b.configs) expect(c.kind !== 'pitch' && (itemCount(c) >= 3 || ['melody', 'progression', 'bass', 'rhythmDictation', 'twoVoice', 'fullDictation'].includes(c.kind))).toBe(true);
+  });
+});

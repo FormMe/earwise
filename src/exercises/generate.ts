@@ -8,7 +8,7 @@ import { pick, randInt, weightedPick } from '../theory/random';
 import { generateRhythm } from '../theory/rhythm';
 import { DEGREES, degreeById, degreeBySemis, MAJOR, NAT_MINOR, scaleById, SOLF_RU } from '../theory/scales';
 import type { AccompStyle, CadenceType, Choice, Dir, ExerciseConfig, GenCtx, Question } from './types';
-import { cellsForLevel, cellsToDurations, generateBeatRhythm } from '../theory/rhythmCells';
+import { cellById, cellsForLevel, cellsToDurations, generateBeatRhythm } from '../theory/rhythmCells';
 import { genFullDictation, genFunction, genIntervalInKey, genModulation, genPulse, genTonicFind, genTwoVoice } from './generate2';
 
 export const tr = (ctx: GenCtx, ru: string, en: string) => (ctx.lang === 'ru' ? ru : en);
@@ -850,7 +850,7 @@ function genRhythmDictation(cfg: Extract<ExerciseConfig, { kind: 'rhythmDictatio
     choices: pool.map((c) => ({ id: c.id, label: '', glyph: c.id, sub: ctx.lang === 'ru' ? c.ru : c.en, audio: mk([c.id], 1, false) })),
     answer: cells,
     itemKeys: cells.map((c) => `rdict:${c}`),
-    answerLabel: '',
+    answerLabel: cells.map((c) => cellById(c)[ctx.lang === 'ru' ? 'ru' : 'en'].toLowerCase()).join(' · '),
     renderSequence: (ids) => mk(ids),
     explain: compound
       ? tr(ctx, 'В 6/8 две доли, каждая делится на три восьмые: «раз-и-а, два-и-а»', 'In 6/8 there are two beats, each split in three: "1-la-li, 2-la-li"')

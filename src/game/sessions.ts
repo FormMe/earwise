@@ -1,13 +1,13 @@
 import { generate } from '../exercises/generate';
 import type { ExerciseConfig } from '../exercises/types';
 import { hashString, mulberry32, shuffle } from '../theory/random';
-import { ALL_LESSONS, isUnlocked, lessonById, lessonsBefore, levelConfig, MAX_LEVEL, passFor, PathLesson, questionCount, UNITS } from './curriculum';
+import { ALL_LESSONS, isUnlocked, itemCount, lessonById, lessonsBefore, levelConfig, MAX_LEVEL, passFor, PathLesson, questionCount, UNITS } from './curriculum';
 import type { SessionSpec } from './nav';
 import { isDue, itemAcc, ItemStat, Lang, LessonProgress, todayStr } from './store';
 
 const FAST_KINDS = new Set(['pitch', 'interval', 'chord', 'inversion', 'scale', 'degree', 'cadence']);
 /** kinds that can be mixed into reviews and tests (no mic / tapping) */
-const MIXABLE = new Set([...FAST_KINDS, 'melody', 'progression', 'bass', 'rhythmDictation']);
+const MIXABLE = new Set([...FAST_KINDS, 'function', 'tonicFind', 'intervalInKey', 'modulation', 'melody', 'progression', 'bass', 'rhythmDictation', 'twoVoice', 'fullDictation']);
 
 type Lessons = Record<string, LessonProgress>;
 type Items = Record<string, ItemStat>;
@@ -152,10 +152,17 @@ export function needsPractice(lessonId: string, lessons: Lessons, items: Items) 
   return dueShare(l.cfg, items) > 0.3;
 }
 
-/** Placement test: 6 questions per unit in order; 5/6 tests the learner out of that unit. */
+const SEQ_PLACEMENT = new Set(['melody', 'progression', 'bass', 'rhythmDictation', 'twoVoice', 'fullDictation']);
+
+/** Placement test: 8 guess-resistant questions per unit in order; 7/8 tests the learner out of that unit. */
 export function placementSpec(lang: Lang): SessionSpec {
+  // only questions that are hard to guess: 3+ options, or a whole sequence to enter
+  const guessProof = (cfg: ExerciseConfig) => {
+    const n = itemCount(cfg);
+    return SEQ_PLACEMENT.has(cfg.kind) || (cfg.kind !== 'pitch' && n >= 3);
+  };
   const blocks = UNITS.filter((u) => !u.optional)
-    .map((u) => ({ unitId: u.id, configs: u.lessons.filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind)).map((l) => l.cfg) }))
+    .map((u) => ({ unitId: u.id, configs: u.lessons.filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind) && guessProof(l.cfg)).map((l) => l.cfg) }))
     .filter((b) => b.configs.length);
   return { mode: 'placement', title: lang === 'ru' ? 'Входной тест' : 'Placement test', configs: blocks[0].configs, count: null, blocks, randomTimbre: false };
 }

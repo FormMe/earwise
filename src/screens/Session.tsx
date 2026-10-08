@@ -15,6 +15,7 @@ import { PulseInput } from '../components/PulseInput';
 import { Results } from './Results';
 import { RhythmGlyph } from '../components/RhythmGlyph';
 import { lessonById } from '../game/curriculum';
+import { KIND_HELP } from '../game/help';
 import { haptic } from '../components/haptics';
 
 interface Mistake {
@@ -23,6 +24,9 @@ interface Mistake {
 }
 
 const TEMPO = { slow: 1.35, normal: 1, fast: 0.78 };
+/** placement: questions per unit and how many must be right */
+const BLOCK = 8;
+const BLOCK_PASS = 7;
 
 type SQuestion = Question & { review?: boolean; cfg?: ExerciseConfig };
 
@@ -80,7 +84,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number }[]>([]);
   const held = useRef<{ tonic: number; left: number } | null>(null);
   // placement test progress
-  const block = useRef({ i: 0, n: 0, ok: 0, placed: [] as string[] });
+  const block = useRef({ i: 0, n: 0, ok: 0, dk: 0, placed: [] as string[] });
+  const [showHelp, setShowHelp] = useState(false);
   const [playsLeft, setPlaysLeft] = useState<number | null>(null);
   const [mastered, setMastered] = useState<number>(0);
 
@@ -245,7 +250,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   }, [idx, spec, lives, correct, finish, makeQuestion, showQuestion]);
 
   const judge = useCallback(
-    (user: string[], okOverride?: boolean) => {
+    (user: string[], okOverride?: boolean, dontKnow = false) => {
       if (!q || phase !== 'answer') return;
       const given = q.given ?? 0;
       const ok = okOverride ?? (user.length === q.answer.length && user.every((u, i) => u === q.answer[i]));
@@ -300,12 +305,15 @@ export function Session({ spec }: { spec: SessionSpec }) {
         const b = block.current;
         b.n++;
         if (ok) b.ok++;
-        if (b.n >= 6) {
-          const passedBlock = b.ok >= 5;
+        if (dontKnow) b.dk++;
+        // a unit is credited only for near-perfect answers; two "don't know"s end it at once
+        if (b.n >= BLOCK || b.dk >= 2 || b.n - b.ok > BLOCK - BLOCK_PASS) {
+          const passedBlock = b.ok >= BLOCK_PASS;
           if (passedBlock) b.placed.push(spec.blocks[b.i].unitId);
           b.i++;
           b.n = 0;
           b.ok = 0;
+          b.dk = 0;
           if (!passedBlock || b.i >= spec.blocks.length) {
             nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), 1200);
             return;
@@ -383,7 +391,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   });
 
   const quit = () => {
-    if (spec.mode === 'practice' && total > 0) return finish();
+    if ((spec.mode === 'practice' || spec.blocks) && total > 0) return finish();
     if (total === 0) back();
     else setAskQuit(true);
   };
@@ -504,7 +512,15 @@ export function Session({ spec }: { spec: SessionSpec }) {
             {correct}/{total}
           </div>
         ) : null}
+        {spec.blocks && (
+          <div className="pill">
+            {settings.lang === 'ru' ? 'Раздел' : 'Unit'} {Math.min(block.current.i + 1, spec.blocks.length)} · {block.current.n + (phase === 'answer' ? 1 : 0)}/{BLOCK}
+          </div>
+        )}
         {spec.level != null && spec.level > 1 && <div className="pill crown">👑 {spec.level}</div>}
+        <button className="icon-btn help-btn" onClick={() => setShowHelp(true)} aria-label={t('helpTitle')}>
+          ?
+        </button>
         <div className={`combo ${combo >= 3 ? 'hot' : ''}`} title={t('combo')}>
           🔥 {combo}
         </div>
@@ -630,7 +646,50 @@ export function Session({ spec }: { spec: SessionSpec }) {
         {q.input === 'rhythm' && q.rhythm && (
           <RhythmInput key={idx} pattern={q.rhythm.pattern} bpm={q.rhythm.bpm} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
         )}
+        {phase === 'answer' && q.input !== 'pulse' && q.input !== 'rhythm' && (
+          <div className="dk-row">
+            <button className="btn ghost small" onClick={() => judge(['?'], false, true)}>
+              🤷 {t('dontKnow')}
+            </button>
+            {spec.blocks && (
+              <button className="btn ghost small" onClick={() => finish()}>
+                🏁 {t('endTest')}
+              </button>
+            )}
+          </div>
+        )}
       </main>
+
+      {showHelp && (
+        <div className="modal-bg" onClick={() => setShowHelp(false)}>
+          <div className="modal help" onClick={(e) => e.stopPropagation()}>
+            <h3>❓ {t('helpTitle')}</h3>
+            <p>
+              <b>👂 {t('helpHear')}</b> {KIND_HELP[q.kind][settings.lang][0]}
+            </p>
+            <p>
+              <b>👉 {t('helpDo')}</b> {KIND_HELP[q.kind][settings.lang][1]}
+            </p>
+            <p className="muted small">{t('helpHonest')}</p>
+            <div className="row gap wrap">
+              <button className="chip" onClick={() => play(q.stimulus)}>
+                ▶ {t('introExample')}
+              </button>
+              {q.choices
+                .filter((c) => c.audio)
+                .slice(0, 8)
+                .map((c) => (
+                  <button key={c.id} className="chip" onClick={() => play(c.audio!)}>
+                    {c.glyph ? <RhythmGlyph id={c.glyph} size={22} /> : `▶ ${c.label}`}
+                  </button>
+                ))}
+            </div>
+            <button className="btn primary" onClick={() => setShowHelp(false)}>
+              {t('gotIt')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {askQuit && (
         <div className="modal-bg" onClick={() => setAskQuit(false)}>
@@ -651,7 +710,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       {phase === 'feedback' && (
         <div className={`feedback ${isCorrect ? 'ok' : 'bad'}`}>
           <div className="feedback-inner">
-            <div className="fb-title">{isCorrect ? `✓ ${t('correct')}` : `✗ ${t('wrong')}`}</div>
+            <div className="fb-title">{isCorrect ? `✓ ${t('correct')}` : picked[0] === '?' ? `🤷 ${t('dkTitle')}` : `✗ ${t('wrong')}`}</div>
             {!isCorrect && q.answerLabel && (
               <div className="fb-answer">
                 {t('answerWas')} <b>{q.answerLabel}</b>
@@ -659,7 +718,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
             )}
             {isCorrect && q.answerLabel && q.input !== 'choice' && <div className="fb-answer">{q.answerLabel}</div>}
             {q.explain && <div className="fb-explain">{q.explain}</div>}
-            {!isCorrect && q.input === 'sequence' && q.renderSequence && (
+            {!isCorrect && q.input === 'sequence' && q.renderSequence && picked[0] !== '?' && (
               <div className="row gap">
                 <button className="chip" onClick={() => play(q.renderSequence!(picked))}>
                   {t('yourVersion')}

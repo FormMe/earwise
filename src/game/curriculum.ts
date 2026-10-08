@@ -411,6 +411,7 @@ export function itemCount(cfg: ExerciseConfig): number {
     case 'inversion':
       return cfg.invs.length;
     case 'function':
+    case 'tonicFind':
       return 3;
     case 'intervalInKey':
       return cfg.set.length - 1;

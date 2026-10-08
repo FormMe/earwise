@@ -30,7 +30,7 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
   const acc = total ? Math.round((correct / total) * 100) : 0;
   const [shownStars, setShownStars] = useState(0);
   const isLesson = spec.mode === 'lesson';
-  const passed = !isLesson || outcome.stars > 0;
+  const passed = placed != null ? placed > 0 : !isLesson || outcome.stars > 0;
   const arcade = spec.mode === 'blitz' || spec.mode === 'survival';
 
   useEffect(() => {
@@ -44,14 +44,14 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
     return () => clearInterval(id);
   }, [isLesson, outcome.stars]);
 
-  const label = (q: Question, id: string) => q.choices.find((c) => c.id === id)?.label ?? (id === 'no' ? '—' : id);
+  const label = (q: Question, id: string) => (id === '?' ? '🤷' : q.choices.find((c) => c.id === id)?.label ?? (id === 'no' ? '—' : id));
 
   return (
     <div className="results">
       {passed && <Confetti />}
       <div className="results-head">
         <div className="results-emoji">{passed ? (acc === 100 ? '🏆' : '🎉') : '💪'}</div>
-        <h1>{arcade ? spec.title : isLesson ? (passed ? t('lessonComplete') : t('tryAgain')) : t('sessionComplete')}</h1>
+        <h1>{placed != null ? spec.title : arcade ? spec.title : isLesson ? (passed ? t('lessonComplete') : t('tryAgain')) : t('sessionComplete')}</h1>
         {isLesson && passed && spec.level && (
           <div className="level-done">
             {'👑'.repeat(spec.level)} {lang === 'ru' ? 'Уровень' : 'Level'} {spec.level}/{MAX_LEVEL} · {LEVELS[lang][spec.level]}
@@ -94,7 +94,14 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
       <div className="banners">
         {placed != null && (
           <div className="banner level">
-            🧭 {lang === 'ru' ? `Засчитано разделов: ${placed}. Продолжай с раздела ${placed + 1}!` : `Units placed out: ${placed}. Continue from unit ${placed + 1}!`}
+            🧭{' '}
+            {placed > 0
+              ? lang === 'ru'
+                ? `Засчитано разделов: ${placed}. Продолжай с раздела ${placed + 1}!`
+                : `Units placed out: ${placed}. Continue from unit ${placed + 1}!`
+              : lang === 'ru'
+                ? 'Начни с первого раздела — так навыки лягут честно и крепко. Короткие уроки пролетишь быстро.'
+                : 'Start from unit 1 — the early lessons will fly by and the skills will stick.'}
           </div>
         )}
         {!!mastered && (

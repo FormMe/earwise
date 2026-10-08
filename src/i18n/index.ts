@@ -162,6 +162,14 @@ const ru = {
   needsPractice: 'Пора повторить',
   checkpointHint: 'Сдай на 85% — и все уроки до неё засчитаются',
   passNeed: 'Нужно',
+  dontKnow: 'Не знаю',
+  dkTitle: 'Честно — это лучше, чем угадывать',
+  endTest: 'Дальше не знаю — закончить тест',
+  helpTitle: 'Что тут нужно делать?',
+  helpHear: 'Что звучит:',
+  helpDo: 'Что ответить:',
+  helpHonest: 'Если не уверен — жми «Не знаю», а не угадывай: так приложение поймёт, что повторить, и не засчитает случайный ответ.',
+  gotIt: 'Понятно',
 };
 
 export type TKey = keyof typeof ru;
@@ -328,6 +336,14 @@ const en: Record<TKey, string> = {
   needsPractice: 'Needs practice',
   checkpointHint: 'Pass with 85% to unlock every lesson before it',
   passNeed: 'Need',
+  dontKnow: "Don't know",
+  dkTitle: 'Honest — better than guessing',
+  endTest: "That's all I know — finish the test",
+  helpTitle: 'What do I do here?',
+  helpHear: 'You hear:',
+  helpDo: 'You answer:',
+  helpHonest: "Not sure? Tap “Don't know” instead of guessing — the app will know what to review and won't count a lucky guess.",
+  gotIt: 'Got it',
 };
 
 const dicts = { ru, en };
