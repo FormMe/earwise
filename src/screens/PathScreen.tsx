@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ALL_LESSONS, isUnlocked, KIND_META, UNITS } from '../game/curriculum';
+import { ALL_LESSONS, isUnlocked, KIND_META, passFor, questionCount, UNITS } from '../game/curriculum';
 import { useNav } from '../game/nav';
-import { dailySpec, lessonSpec, reviewSpec } from '../game/sessions';
+import { dailySpec, lessonSpec, needsPractice, reviewSpec } from '../game/sessions';
 import { todayStr, useStore } from '../game/store';
 import { useLang, useT } from '../i18n';
 import { audio } from '../audio/engine';
@@ -19,7 +19,7 @@ export function PathScreen() {
   const [sel, setSel] = useState<string | null>(null);
   const currentRef = useRef<HTMLDivElement>(null);
 
-  const current = ALL_LESSONS.find((l) => !(lessons[l.id]?.stars > 0))?.id;
+  const current = ALL_LESSONS.find((l) => !l.unit.optional && !(lessons[l.id]?.stars > 0))?.id;
 
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'center' });
@@ -27,7 +27,7 @@ export function PathScreen() {
 
   const start = (id: string) => {
     audio.unlock();
-    startSession(lessonSpec(id, lang));
+    startSession(lessonSpec(id, lang, lessons, items));
   };
 
   const review = reviewSpec(lessons, items, lang);
@@ -40,7 +40,7 @@ export function PathScreen() {
           className={`quick-card daily ${dailyDone ? 'done' : ''}`}
           onClick={() => {
             audio.unlock();
-            startSession(dailySpec(lang));
+            startSession(dailySpec(lessons, items, lang, unlockAll));
           }}
         >
           <span className="qc-icon">📆</span>
@@ -87,6 +87,8 @@ export function PathScreen() {
                 const stars = lessons[l.id]?.stars ?? 0;
                 const isCur = l.id === current;
                 const meta = KIND_META[l.cfg.kind];
+                const stale = needsPractice(l.id, lessons, items);
+                const icon = l.checkpoint ? '🏁' : meta.icon;
                 return (
                   <div
                     key={l.id}
@@ -96,12 +98,13 @@ export function PathScreen() {
                   >
                     {isCur && <div className="node-start">{t('start')}!</div>}
                     <button
-                      className={`node ${unlocked ? '' : 'locked'} ${stars ? 'done' : ''} ${stars === 3 ? 'gold' : ''} ${isCur ? 'current' : ''}`}
+                      className={`node ${l.checkpoint ? 'check' : ''} ${unlocked ? '' : 'locked'} ${stars ? 'done' : ''} ${stars === 3 ? 'gold' : ''} ${isCur ? 'current' : ''}`}
                       style={{ '--uc': u.color } as React.CSSProperties}
                       onClick={() => setSel(sel === l.id ? null : l.id)}
                       aria-label={lang === 'ru' ? l.ru : l.en}
                     >
-                      <span className="node-icon">{unlocked ? meta.icon : '🔒'}</span>
+                      <span className="node-icon">{unlocked ? icon : '🔒'}</span>
+                      {stale && <span className="node-stale" title={t('needsPractice')}>↻</span>}
                     </button>
                     <div className="node-stars">
                       {[1, 2, 3].map((s) => (
@@ -113,13 +116,15 @@ export function PathScreen() {
                     {sel === l.id && (
                       <div className="node-pop" style={{ '--uc': u.color } as React.CSSProperties}>
                         <div className="np-kind">
-                          {meta.icon} {lang === 'ru' ? meta.ru : meta.en}
+                          {icon} {l.checkpoint ? (lang === 'ru' ? 'Контрольная' : 'Checkpoint') : lang === 'ru' ? meta.ru : meta.en}
                         </div>
                         <div className="np-title">{lang === 'ru' ? l.ru : l.en}</div>
                         <div className="np-sub">
-                          {l.questions ?? 10} {t('questions')}
+                          {questionCount(l)} {t('questions')} · {t('passNeed')} {Math.round(passFor(l) * 100)}%
                           {lessons[l.id]?.best ? ` · ${t('accuracy')} ${Math.round(lessons[l.id].best * 100)}%` : ''}
                         </div>
+                        {l.checkpoint && !stars && <div className="np-sub">🏁 {t('checkpointHint')}</div>}
+                        {stale && <div className="np-sub">↻ {t('needsPractice')}</div>}
                         {unlocked ? (
                           <button className="btn primary block" onClick={() => start(l.id)}>
                             {stars ? t('again') : t('start')}

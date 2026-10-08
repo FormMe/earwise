@@ -3,6 +3,7 @@ import { intervalBySemis } from '../theory/intervals';
 import { NoteNaming, pcName } from '../theory/notes';
 import { degreeById, scaleById, SOLF_RU } from '../theory/scales';
 import { KIND_META } from './curriculum';
+import { cellById } from '../theory/rhythmCells';
 import type { Lang } from './store';
 
 const PREFIX_KIND: Record<string, keyof typeof KIND_META> = {
@@ -19,6 +20,9 @@ const PREFIX_KIND: Record<string, keyof typeof KIND_META> = {
   singdeg: 'sing',
   singint: 'sing',
   rhythm: 'rhythm',
+  rdict: 'rhythmDictation',
+  bass: 'bass',
+  cad: 'cadence',
 };
 
 export const kindOfKey = (key: string) => PREFIX_KIND[key.split(':')[0]];
@@ -46,8 +50,8 @@ export function labelForKey(key: string, lang: Lang, naming: NoteNaming): string
         return ru ? s.ru : s.en;
       }
       case 'deg': {
-        const d = degreeById(a);
-        return `${ru ? 'Ступень' : 'Degree'} ${d.label} (${ru ? SOLF_RU[d.solf] : d.solf.toLowerCase()})${b === 'm' ? (ru ? ', минор' : ', minor') : ''}`;
+        const d = degreeById(a.replace(',', ''));
+        return `${ru ? 'Ступень' : 'Degree'} ${d.label}${a.endsWith(',') ? '̣' : ''} (${ru ? SOLF_RU[d.solf] : d.solf.toLowerCase()})${b === 'm' ? (ru ? ', минор' : ', minor') : ''}`;
       }
       case 'mel': {
         const d = degreeById(a);
@@ -63,6 +67,16 @@ export function labelForKey(key: string, lang: Lang, naming: NoteNaming): string
         return ru ? 'Пение' : 'Singing';
       case 'rhythm':
         return `${ru ? 'Ритм' : 'Rhythm'} ${'★'.repeat(Number(a))}`;
+      case 'rdict': {
+        const c = cellById(a);
+        return `${ru ? 'Ритм' : 'Rhythm'}: ${ru ? c.ru : c.en}`;
+      }
+      case 'bass': {
+        const d = degreeById(a);
+        return `${ru ? 'Бас' : 'Bass'}: ${d.label}`;
+      }
+      case 'cad':
+        return `${ru ? 'Каденция' : 'Cadence'} ${a}`;
     }
   } catch {
     /* unknown */

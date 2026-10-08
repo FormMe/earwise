@@ -4,12 +4,14 @@
  */
 import { midiToFreq } from '../theory/notes';
 
-export type Instrument = 'piano' | 'epiano' | 'guitar' | 'organ';
+export type Instrument = 'piano' | 'epiano' | 'guitar' | 'eguitar' | 'recorder' | 'organ';
 
 export const INSTRUMENT_LENGTH: Record<Instrument, number> = {
   piano: 3.2,
   epiano: 2.8,
   guitar: 2.6,
+  eguitar: 3.2,
+  recorder: 3.0,
   organ: 3.0,
 };
 
@@ -25,6 +27,10 @@ export function renderNote(inst: Instrument, midi: number, sr: number): Float32A
       return renderGuitar(midi, sr);
     case 'organ':
       return renderOrgan(midi, sr);
+    case 'eguitar':
+      return renderEGuitar(midi, sr);
+    case 'recorder':
+      return renderRecorder(midi, sr);
   }
 }
 
@@ -142,6 +148,87 @@ function renderGuitar(midi: number, sr: number) {
   return normalize(out, 0.55);
 }
 
+/** Clean-ish electric guitar: bright, long Karplus–Strong string through a soft amp drive. */
+function renderEGuitar(midi: number, sr: number) {
+  const f0 = midiToFreq(midi);
+  const len = Math.floor(INSTRUMENT_LENGTH.eguitar * sr);
+  const out = new Float32Array(len);
+  const P = sr / f0 - 0.5;
+  const Ni = Math.floor(P);
+  const fr = P - Ni;
+  const tau = Math.min(4.5, Math.max(1.2, 3.4 * Math.sqrt(196 / f0)));
+  const decay = Math.exp(-1 / (tau * f0));
+  let lp = 0;
+  for (let i = 0; i < Ni + 2 && i < len; i++) {
+    lp += 0.85 * (Math.random() * 2 - 1 - lp);
+    out[i] = lp;
+  }
+  let prevY = 0;
+  for (let i = Ni + 2; i < len; i++) {
+    const y = (1 - fr) * out[i - Ni] + fr * out[i - Ni - 1];
+    // less damping than the acoustic: blend towards the undamped sample
+    out[i] = decay * (0.7 * y + 0.3 * (0.5 * (y + prevY)));
+    prevY = y;
+  }
+  // pickup: comb filter (pickup near the bridge thins the low end)
+  const d = Math.max(1, Math.floor(sr / f0 / 7));
+  const picked = new Float32Array(len);
+  for (let i = 0; i < len; i++) picked[i] = out[i] - 0.55 * (i >= d ? out[i - d] : 0);
+  // amp: soft drive + tone control + DC block
+  let s = 0;
+  let px = 0;
+  let py = 0;
+  let peak = 0;
+  for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(picked[i]));
+  const gain = peak > 0 ? 2.2 / peak : 1;
+  for (let i = 0; i < len; i++) {
+    const x = Math.tanh(picked[i] * gain);
+    s += 0.45 * (x - s);
+    const yy = s - px + 0.995 * py;
+    px = s;
+    py = yy;
+    out[i] = yy;
+  }
+  return normalize(out, 0.5);
+}
+
+/** Recorder: near-sine flue tone with breath noise, an attack "chiff" and gentle vibrato. */
+function renderRecorder(midi: number, sr: number) {
+  const f0 = midiToFreq(midi);
+  const len = Math.floor(INSTRUMENT_LENGTH.recorder * sr);
+  const out = new Float32Array(len);
+  const harm: [number, number][] = [
+    [1, 1],
+    [2, 0.12],
+    [3, 0.16],
+    [4, 0.03],
+    [5, 0.04],
+  ];
+  const nyq = sr * 0.45;
+  let phase = 0;
+  let nlp = 0;
+  let nlp2 = 0;
+  const bw = Math.min(0.5, (f0 * 2.5) / sr);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    // pitch: tiny overshoot at the start, then delayed vibrato
+    const vib = t > 0.35 ? 0.0035 * Math.sin(TAU * 5.2 * t) * Math.min(1, (t - 0.35) * 3) : 0;
+    const bend = 0.006 * Math.exp(-t / 0.03);
+    phase += (TAU * f0 * (1 + vib + bend)) / sr;
+    let v = 0;
+    for (const [h, a] of harm) if (f0 * h < nyq) v += a * Math.sin(h * phase);
+    // breath noise, band-limited around the note
+    const n = Math.random() * 2 - 1;
+    nlp += bw * (n - nlp);
+    nlp2 += bw * (nlp - nlp2);
+    const breath = (nlp - nlp2) * 2.2;
+    const env = Math.min(1, t / 0.04) * (0.92 + 0.08 * Math.min(1, t / 0.6));
+    const chiff = Math.exp(-t / 0.025) * 0.35 * n;
+    out[i] = env * (v + 0.06 * breath) + chiff * Math.min(1, t / 0.004);
+  }
+  return normalize(out, 0.42);
+}
+
 function renderOrgan(midi: number, sr: number) {
   const f0 = midiToFreq(midi);
   const len = Math.floor(INSTRUMENT_LENGTH.organ * sr);
@@ -175,6 +262,33 @@ export function renderClick(sr: number, accent: boolean): Float32Array {
   for (let i = 0; i < len; i++) {
     const t = i / sr;
     out[i] = Math.sin(TAU * f * t) * Math.exp(-t / 0.012) * (accent ? 0.6 : 0.4);
+  }
+  return out;
+}
+
+export type Drum = 'kick' | 'snare' | 'hat';
+
+export function renderDrum(kind: Drum, sr: number): Float32Array {
+  const len = Math.floor((kind === 'hat' ? 0.08 : kind === 'snare' ? 0.2 : 0.35) * sr);
+  const out = new Float32Array(len);
+  let lp = 0;
+  let hp = 0;
+  let prev = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    if (kind === 'kick') {
+      const f = 45 + 110 * Math.exp(-t / 0.035);
+      out[i] = Math.sin(TAU * f * t + 0) * Math.exp(-t / 0.12) * 0.9;
+    } else if (kind === 'snare') {
+      const n = Math.random() * 2 - 1;
+      lp += 0.35 * (n - lp);
+      out[i] = (lp * 0.7 * Math.exp(-t / 0.06) + 0.35 * Math.sin(TAU * 190 * t) * Math.exp(-t / 0.04)) * 0.8;
+    } else {
+      const n = Math.random() * 2 - 1;
+      hp = 0.6 * (hp + n - prev);
+      prev = n;
+      out[i] = hp * Math.exp(-t / 0.018) * 0.35;
+    }
   }
   return out;
 }

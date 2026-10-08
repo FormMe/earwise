@@ -20,6 +20,8 @@ export function stopMic() {
 
 interface Props {
   targets: number[];
+  /** sing the targets one after another (echo a phrase) */
+  sequential?: boolean;
   targetLabel: string;
   busy: boolean;
   done: boolean;
@@ -29,7 +31,7 @@ interface Props {
 const HOLD_MS = 700;
 const TOL = 45; // cents
 
-export function SingInput({ targets, targetLabel, busy, done, onResult }: Props) {
+export function SingInput({ targets, sequential, targetLabel, busy, done, onResult }: Props) {
   const t = useT();
   const { naming, lang } = useStore((s) => s.settings);
   const [status, setStatus] = useState<'idle' | 'on' | 'denied'>(micOn ? 'on' : 'idle');
@@ -40,9 +42,13 @@ export function SingInput({ targets, targetLabel, busy, done, onResult }: Props)
   const hist = useRef<number[]>([]);
   const quietUntil = useRef(0);
   const fired = useRef(false);
+  const [pos, setPos] = useState(0);
+  const posRef = useRef(0);
 
   useEffect(() => {
     fired.current = false;
+    posRef.current = 0;
+    setPos(0);
   }, [targets]);
 
   const finish = (ok: boolean) => {
@@ -83,7 +89,7 @@ export function SingInput({ targets, targetLabel, busy, done, onResult }: Props)
       setHeard(med);
       // octave-agnostic distance to the closest target
       let best = Infinity;
-      for (const tg of targets) {
+      for (const tg of sequential ? [targets[posRef.current]] : targets) {
         let d = (med - tg) % 12;
         if (d > 6) d -= 12;
         if (d < -6) d += 12;
@@ -93,9 +99,17 @@ export function SingInput({ targets, targetLabel, busy, done, onResult }: Props)
       setCents(c);
       if (Math.abs(c) <= TOL) {
         if (holdStart.current == null) holdStart.current = now;
-        const p = Math.min(1, (now - holdStart.current) / HOLD_MS);
+        const p = Math.min(1, (now - holdStart.current) / (sequential ? 300 : HOLD_MS));
         setHold(p);
-        if (p >= 1) finish(true);
+        if (p >= 1) {
+          if (sequential && posRef.current < targets.length - 1) {
+            posRef.current++;
+            setPos(posRef.current);
+            holdStart.current = null;
+            hist.current = [];
+            setHold(0);
+          } else finish(true);
+        }
       } else {
         holdStart.current = null;
         setHold(0);
@@ -151,6 +165,13 @@ export function SingInput({ targets, targetLabel, busy, done, onResult }: Props)
       <div className="sing-status">
         {done ? '' : busy ? t('listenFirst') : cents == null ? t('micListening') : inTune ? t('holdIt') : heard != null ? noteName(Math.round(heard), naming, lang, true) : ''}
       </div>
+      {sequential && (
+        <div className="echo-dots">
+          {targets.map((_, i) => (
+            <span key={i} className={i < pos || (done && fired.current) ? 'ok' : i === pos ? 'cur' : ''} />
+          ))}
+        </div>
+      )}
       <div className="hold-bar">
         <div style={{ width: `${hold * 100}%` }} />
       </div>

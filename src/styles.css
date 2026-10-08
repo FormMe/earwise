@@ -1878,3 +1878,141 @@ input[type='range'] {
   flex-direction: column;
   gap: 10px;
 }
+
+.node.check {
+  width: 86px;
+  height: 80px;
+  border-radius: 28px;
+}
+.node-stale {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--warn);
+  color: #2a1a00;
+  font-size: 15px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px #0006;
+}
+.node {
+  position: relative;
+}
+
+.review-tag {
+  align-self: center;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--warn);
+  background: #ffb02018;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.session.intro {
+  gap: 16px;
+}
+.intro-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+.intro-text {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 0;
+  line-height: 1.5;
+  border-left: 4px solid var(--accent);
+}
+.center-chip {
+  align-self: center;
+}
+.choice.glyph {
+  background: #f4f1ff;
+  color: #1a1035;
+  border-color: #cfc6f5;
+}
+.rglyph .rg-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.rglyph .rg-fill {
+  fill: currentColor;
+}
+.rglyph .rg-text {
+  fill: currentColor;
+  font-size: 9px;
+  font-weight: 800;
+}
+.slot .rglyph {
+  color: var(--text);
+}
+.slots:has(.rglyph) .slot {
+  width: 48px;
+  height: auto;
+  min-height: 60px;
+  padding: 4px 0;
+}
+.slot small .rglyph {
+  width: 24px;
+  height: auto;
+}
+
+.echo-dots {
+  display: flex;
+  gap: 10px;
+}
+.echo-dots span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--card2);
+}
+.echo-dots span.cur {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.echo-dots span.ok {
+  background: var(--ok);
+}
+
+.mem-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--card2);
+  gap: 2px;
+}
+.mem-m {
+  background: var(--ok);
+}
+.mem-l {
+  background: var(--accent);
+}
+.mem-d {
+  background: var(--warn);
+}
+.mem-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0 4px;
+}
+.mem-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}

@@ -57,12 +57,17 @@ export function SettingsScreen() {
     up({ instrument: i });
     audio.unlock();
     audio.setInstrument(i);
-    audio.play([
-      { t: 0, d: 0.5, midi: 60 },
-      { t: 0.25, d: 0.5, midi: 64 },
-      { t: 0.5, d: 0.5, midi: 67 },
-      { t: 0.75, d: 1.2, midi: [60, 64, 67, 72] },
-    ]);
+    // recorder can't play chords: demo a phrase in its register instead
+    audio.play(
+      i === 'recorder'
+        ? [72, 74, 76, 79, 77, 76, 74, 72].map((m, k) => ({ t: k * 0.3, d: k === 7 ? 1 : 0.28, midi: m }))
+        : [
+            { t: 0, d: 0.5, midi: 60 },
+            { t: 0.25, d: 0.5, midi: 64 },
+            { t: 0.5, d: 0.5, midi: 67 },
+            { t: 0.75, d: 1.2, midi: [60, 64, 67, 72], strum: i.includes('guitar') ? 0.02 : 0 },
+          ],
+    );
   };
 
   return (
@@ -83,7 +88,7 @@ export function SettingsScreen() {
         </Row>
         <Row label={t('instrument')}>
           <div className="seg wrap">
-            {(['piano', 'epiano', 'guitar', 'organ'] as Instrument[]).map((i) => (
+            {(['piano', 'guitar', 'eguitar', 'recorder', 'epiano', 'organ'] as Instrument[]).map((i) => (
               <button key={i} className={s.instrument === i ? 'on' : ''} onClick={() => tryInstrument(i)}>
                 {t(i)}
               </button>

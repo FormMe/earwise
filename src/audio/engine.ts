@@ -1,4 +1,4 @@
-import { Instrument, INSTRUMENT_LENGTH, renderClick, renderNote } from './synth';
+import { Drum, Instrument, INSTRUMENT_LENGTH, renderClick, renderDrum, renderNote } from './synth';
 
 export interface NoteEvent {
   /** start, seconds from the beginning of the sequence */
@@ -7,13 +7,17 @@ export interface NoteEvent {
   d: number;
   midi: number | number[];
   vel?: number;
+  /** play with a specific instrument instead of the current one */
+  inst?: Instrument;
+  /** percussion hit instead of pitched notes (midi is ignored) */
+  drum?: Drum;
   /** stagger for chords (seconds between notes) */
   strum?: number;
 }
 
 type Voice = { src: AudioBufferSourceNode; gain: GainNode };
 
-const RELEASE: Record<Instrument, number> = { piano: 0.25, epiano: 0.3, guitar: 0.2, organ: 0.08 };
+const RELEASE: Record<Instrument, number> = { piano: 0.25, epiano: 0.3, guitar: 0.2, eguitar: 0.25, recorder: 0.07, organ: 0.08 };
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -22,6 +26,7 @@ class AudioEngine {
   private wet!: GainNode;
   private cache = new Map<string, AudioBuffer>();
   private clicks: AudioBuffer[] = [];
+  private drums: Partial<Record<Drum, AudioBuffer>> = {};
   private voices = new Set<Voice>();
   private timers = new Set<number>();
   instrument: Instrument = 'piano';
@@ -164,6 +169,20 @@ class AudioEngine {
     };
   }
 
+  drum(kind: Drum, at: number, vel = 0.8) {
+    const ctx = this.ensure();
+    const buf = (this.drums[kind] ??= this.toBuffer(renderDrum(kind, ctx.sampleRate)));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = vel;
+    src.connect(g).connect(this.dry);
+    src.start(at);
+    const voice = { src, gain: g };
+    this.voices.add(voice);
+    src.onended = () => this.voices.delete(voice);
+  }
+
   click(at: number, accent = false) {
     const ctx = this.ensure();
     const src = ctx.createBufferSource();
@@ -187,10 +206,17 @@ class AudioEngine {
     const t0 = ctx.currentTime + 0.06;
     let end = 0;
     for (const e of events) {
+      if (e.drum) {
+        this.drum(e.drum, t0 + e.t, e.vel ?? 0.8);
+        end = Math.max(end, e.t + 0.2);
+        continue;
+      }
       const notes = Array.isArray(e.midi) ? e.midi : [e.midi];
       notes.forEach((m, i) => {
         const at = t0 + e.t + (e.strum ?? 0) * i;
-        this.note(m, at, e.d, e.vel ?? (notes.length > 1 ? 0.6 : 0.8));
+        // a recorder can't play chords: chords fall back to piano
+        const inst = e.inst ?? (this.instrument === 'recorder' && notes.length > 1 ? 'piano' : this.instrument);
+        this.note(m, at, e.d, e.vel ?? (notes.length > 1 ? 0.6 : 0.8), inst);
       });
       end = Math.max(end, e.t + e.d + (e.strum ?? 0) * notes.length);
     }

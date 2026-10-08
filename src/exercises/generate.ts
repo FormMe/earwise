@@ -6,10 +6,14 @@ import { generateMelody } from '../theory/melody';
 import { FLAT_KEYS, noteName, pc, pcName } from '../theory/notes';
 import { pick, randInt, weightedPick } from '../theory/random';
 import { generateRhythm } from '../theory/rhythm';
-import { DEGREES, degreeById, MAJOR, NAT_MINOR, scaleById, SOLF_RU } from '../theory/scales';
-import type { Choice, Dir, ExerciseConfig, GenCtx, Question } from './types';
+import { DEGREES, degreeById, degreeBySemis, MAJOR, NAT_MINOR, scaleById, SOLF_RU } from '../theory/scales';
+import type { AccompStyle, CadenceType, Choice, Dir, ExerciseConfig, GenCtx, Question } from './types';
+import { cellsForLevel, cellsToDurations, generateBeatRhythm } from '../theory/rhythmCells';
 
 const tr = (ctx: GenCtx, ru: string, en: string) => (ctx.lang === 'ru' ? ru : en);
+/** Russian plural: 1 нота, 2 ноты, 5 нот */
+const ruPlural = (n: number, one: string, few: string, many: string) =>
+  n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many;
 
 function pickKey<T>(ctx: GenCtx, items: T[], key: (t: T) => string): T {
   return weightedPick(ctx.rng, items, (t) => {
@@ -44,6 +48,12 @@ export function generate(cfg: ExerciseConfig, ctx: GenCtx): Question {
       return genSing(cfg, ctx);
     case 'rhythm':
       return genRhythm(cfg, ctx);
+    case 'rhythmDictation':
+      return genRhythmDictation(cfg, ctx);
+    case 'bass':
+      return genBass(cfg, ctx);
+    case 'cadence':
+      return genCadence(cfg, ctx);
   }
 }
 
@@ -147,11 +157,14 @@ function chordEvents(notes: number[], tempo: number, arp = false): NoteEvent[] {
 function genChord(cfg: Extract<ExerciseConfig, { kind: 'chord' }>, ctx: GenCtx): Question {
   const id = pickKey(ctx, cfg.set, (x) => `chord:${x}`);
   const def = chordById(id);
-  const root = randInt(ctx.rng, 50, 62);
+  // big chords sound muddy low: keep their root higher
+  const root = def.intervals.length > 3 ? randInt(ctx.rng, 55, 63) : randInt(ctx.rng, 50, 62);
   const inv = cfg.inversions ? randInt(ctx.rng, 0, def.intervals.length - 1) : 0;
   const shape = invert(def.intervals, inv);
   const bass = root + def.intervals[inv] - (inv ? 12 : 0);
-  const notes = shape.map((x) => bass + x);
+  let notes = shape.map((x) => bass + x);
+  // open voicing: bass an octave down, second voice raised (drop-2 style)
+  if (cfg.open && ctx.rng() < 0.6) notes = [notes[0] - 12, ...notes.slice(2), notes[1] + 12].sort((a, b) => a - b);
   const choices = cfg.set.map((cid) => {
     const c = chordById(cid);
     return {
@@ -217,10 +230,12 @@ function genScale(cfg: Extract<ExerciseConfig, { kind: 'scale' }>, ctx: GenCtx):
   const def = scaleById(id);
   const tonic = randInt(ctx.rng, 55, 64);
   const dir = cfg.dir ?? 'up';
+  const stimulus = cfg.vamp ? modeVampEvents(ctx, tonic, def.steps) : scaleEvents(tonic, def.steps, dir, ctx.tempo);
   return {
     kind: 'scale',
-    prompt: tr(ctx, 'Какой лад / гамма?', 'Which scale or mode?'),
-    stimulus: scaleEvents(tonic, def.steps, dir, ctx.tempo),
+    prompt: cfg.vamp ? tr(ctx, 'В каком ладу эта мелодия?', 'Which mode is this melody in?') : tr(ctx, 'Какой лад / гамма?', 'Which scale or mode?'),
+    stimulus,
+    alt: cfg.vamp ? [{ label: tr(ctx, 'Гамма', 'Scale'), events: scaleEvents(tonic, def.steps, 'up', ctx.tempo) }] : undefined,
     input: 'choice',
     choices: cfg.set.map((sid) => {
       const s = scaleById(sid);
@@ -236,6 +251,25 @@ function genScale(cfg: Extract<ExerciseConfig, { kind: 'scale' }>, ctx: GenCtx):
     answerLabel: ctx.lang === 'ru' ? def.ru : def.en,
     explain: def.hint ? (ctx.lang === 'ru' ? def.hint.ru : def.hint.en) : undefined,
   };
+}
+
+/** A drone (tonic + fifth) under a short modal melody that leans on the mode's colour notes. */
+function modeVampEvents(ctx: GenCtx, tonic: number, steps: number[]): NoteEvent[] {
+  const pool = [...steps, 12];
+  const mel = generateMelody(ctx.rng, { pool, length: 9, startOnTonic: true, endOnTonic: true, maxLeap: 4 });
+  // make sure every scale step is heard at least once: append a turn through any missing ones
+  const missing = steps.filter((x) => !mel.includes(x));
+  const line = [...mel.slice(0, -1), ...missing.sort((a, b) => a - b), 0];
+  const step = 0.42 * ctx.tempo;
+  const durs = line.map((_, i) => (i % 4 === 3 || i === line.length - 1 ? 2 : 1));
+  const out: NoteEvent[] = [];
+  let t = 0.6;
+  line.forEach((x, i) => {
+    out.push({ t, d: durs[i] * step * 0.95, midi: tonic + x, vel: 0.8 });
+    t += durs[i] * step;
+  });
+  out.unshift({ t: 0, d: t + 0.6, midi: [tonic - 12, tonic - 5], vel: 0.3, inst: 'organ' });
+  return out;
 }
 
 // ───────────────────────── functional degrees ─────────────────────────
@@ -268,26 +302,35 @@ export function resolution(semis: number, minor: boolean): number[] {
   return path;
 }
 
+/** degree id + optional "," (octave below) */
+const melSemis = (id: string) => (id.endsWith(',') ? degreeById(id.slice(0, -1)).semis - 12 : degreeById(id).semis);
+
 function tonicFor(ctx: GenCtx) {
   return ctx.fixedRoot ? 60 : randInt(ctx.rng, 55, 66);
 }
 
 function degreeLabel(ctx: GenCtx, id: string) {
-  const d = degreeById(id);
-  return { label: d.label, sub: solf(ctx, d.solf) };
+  const low = id.endsWith(',');
+  const d = degreeById(low ? id.slice(0, -1) : id);
+  return { label: low ? `${d.label}̣` : d.label, sub: solf(ctx, d.solf) };
 }
 
 function genDegree(cfg: Extract<ExerciseConfig, { kind: 'degree' }>, ctx: GenCtx): Question {
   const minor = !!cfg.minor;
   const mode = minor ? 'm' : 'M';
   const id = pickKey(ctx, cfg.set, (x) => `deg:${x}:${mode}`);
-  const deg = degreeById(id);
-  const tonic = tonicFor(ctx);
-  let note = tonic + deg.semis;
-  if (cfg.wide && ctx.rng() < 0.4 && deg.semis !== 12) note += ctx.rng() < 0.5 ? -12 : 12;
-  const cad = cadenceEvents(tonic, minor, ctx.tempo);
+  const low = id.endsWith(',');
+  const deg = degreeById(low ? id.slice(0, -1) : id);
+  const semis = melSemis(id);
+  const tonic = cfg.holdKey && ctx.keyTonic != null ? ctx.keyTonic : tonicFor(ctx);
+  let note = tonic + semis;
+  if (cfg.wide && ctx.rng() < 0.4 && deg.semis !== 12 && !low) note += ctx.rng() < 0.5 ? -12 : 12;
+  // context: full cadence, or (when the key is held / at higher levels) just the tonic
+  const tonicOnly = cfg.context === 'tonic' || (cfg.holdKey && !ctx.keyIsNew);
+  const cad = tonicOnly ? { events: [{ t: 0, d: 0.8, midi: tonic, vel: 0.55 }] as NoteEvent[], end: 1.1 * ctx.tempo } : cadenceEvents(tonic, minor, ctx.tempo);
   const stimulus = [...cad.events, { t: cad.end, d: 1.3, midi: note }];
-  const res = resolution(deg.semis, minor).map((s) => note - deg.semis + s);
+  const base = ((semis % 12) + 12) % 12;
+  const res = resolution(base === 0 && semis === 12 ? 12 : base, minor).map((s) => note - (base === 0 && semis === 12 ? 12 : base) + s);
   const step = 0.42 * ctx.tempo;
   const keyName = pcName(tonic, ctx.naming, ctx.lang, FLAT_KEYS.has(pc(tonic)));
   return {
@@ -299,22 +342,42 @@ function genDegree(cfg: Extract<ExerciseConfig, { kind: 'degree' }>, ctx: GenCtx
       { label: tr(ctx, 'Тоника', 'Tonic'), events: [{ t: 0, d: 1.2, midi: tonic }] },
     ],
     input: 'choice',
-    choices: cfg.set.map((cid) => ({
-      id: cid,
-      ...degreeLabel(ctx, cid),
-      audio: [{ t: 0, d: 1, midi: tonic + degreeById(cid).semis }],
-    })),
+    choices: [...cfg.set]
+      .sort((a, b) => melSemis(a) - melSemis(b))
+      .map((cid) => ({
+        id: cid,
+        ...degreeLabel(ctx, cid),
+        audio: [{ t: 0, d: 1, midi: tonic + melSemis(cid) }],
+      })),
     answer: [id],
     itemKeys: [`deg:${id}:${mode}`],
-    answerLabel: `${deg.label} (${solf(ctx, deg.solf)})`,
+    answerLabel: `${degreeLabel(ctx, id).label} (${solf(ctx, deg.solf)})`,
     afterAnswer: res.map((m, i) => ({ t: i * step, d: i === res.length - 1 ? 1 : step, midi: m, vel: 0.7 })),
     explain: tr(ctx, 'Слушай, как нота разрешается в тонику', 'Hear how the note resolves to the tonic'),
   };
 }
 
 // ───────────────────────── melodic dictation ─────────────────────────
-/** degree id + optional "," (octave below) */
-const melSemis = (id: string) => (id.endsWith(',') ? degreeById(id.slice(0, -1)).semis - 12 : degreeById(id).semis);
+
+/** Note values (in eighths) for a singable phrase: mostly quarters/eighths, long final note, filling whole 4/4 bars. */
+function phraseRhythm(ctx: GenCtx, n: number): number[] {
+  const durs: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const r = ctx.rng();
+    durs.push(r < 0.45 ? 2 : r < 0.8 ? 1 : r < 0.92 ? 3 : 4);
+  }
+  // pair up lone eighths so the beat stays clear
+  for (let i = 0; i < durs.length; i++) {
+    if (durs[i] === 1 && durs[i + 1] !== 1 && i + 1 < durs.length) durs[i + 1] = 1;
+    if (durs[i] === 3 && i + 1 < durs.length) durs[i + 1] = 1;
+  }
+  const used = durs.reduce((a, b) => a + b, 0);
+  const bar = 8;
+  let last = bar - (used % bar);
+  if (last < 2) last += bar;
+  durs.push(last);
+  return durs;
+}
 
 function genMelody(cfg: Extract<ExerciseConfig, { kind: 'melody' }>, ctx: GenCtx): Question {
   const minor = !!cfg.minor;
@@ -326,36 +389,42 @@ function genMelody(cfg: Extract<ExerciseConfig, { kind: 'melody' }>, ctx: GenCtx
     pool,
     length: cfg.length,
     startOnTonic: cfg.startOnTonic,
+    endOnTonic: cfg.endOnTonic ?? true,
     maxLeap: cfg.maxLeap ?? 7,
   });
-  const cadChord = voiceChord(tonic, romanById(minor ? 'i' : 'I'));
-  const step = 0.62 * ctx.tempo;
-  const start = 1.5 * ctx.tempo;
-  const melEvents: NoteEvent[] = mel.map((s, i) => ({ t: i * step, d: step * 0.95, midi: tonic + s }));
-  const stimulus: NoteEvent[] = [
-    { t: 0, d: 1.1 * ctx.tempo, midi: cadChord, vel: 0.45 },
-    ...melEvents.map((e) => ({ ...e, t: e.t + start })),
-  ];
+  const cad = cadenceEvents(tonic, minor, ctx.tempo * 0.8);
+  let melEvents: NoteEvent[];
+  if (cfg.rhythmic) {
+    const e8 = 0.33 * ctx.tempo;
+    const durs = phraseRhythm(ctx, mel.length);
+    let t = 0;
+    melEvents = mel.map((s, i) => {
+      const ev = { t, d: durs[i] * e8 * 0.92, midi: tonic + s };
+      t += durs[i] * e8;
+      return ev;
+    });
+  } else {
+    const step = 0.62 * ctx.tempo;
+    melEvents = mel.map((s, i) => ({ t: i * step, d: step * 0.95, midi: tonic + s }));
+  }
+  const start = cad.end + 0.3;
+  const stimulus: NoteEvent[] = [...cad.events, ...melEvents.map((e) => ({ ...e, t: e.t + start }))];
   const ids = mel.map((s) => semisToId.get(s)!);
   const choices: Choice[] = [...poolIds]
     .sort((a, b) => melSemis(a) - melSemis(b))
-    .map((id) => {
-      const low = id.endsWith(',');
-      const d = degreeById(low ? id.slice(0, -1) : id);
-      return {
-        id,
-        label: low ? `${d.label}̣` : d.label,
-        sub: solf(ctx, d.solf),
-        audio: [{ t: 0, d: 0.6, midi: tonic + melSemis(id) }],
-      };
-    });
+    .map((id) => ({
+      id,
+      ...degreeLabel(ctx, id),
+      audio: [{ t: 0, d: 0.6, midi: tonic + melSemis(id) }],
+    }));
   const labels = ids.map((id) => choices.find((c) => c.id === id)!.label).join(' ');
   return {
     kind: 'melody',
     prompt: tr(ctx, `Запиши мелодию из ${cfg.length} нот`, `Write down the melody: ${cfg.length} notes`),
     stimulus,
     alt: [
-      { label: tr(ctx, 'Без аккорда', 'Melody only'), events: melEvents },
+      { label: tr(ctx, 'Только мелодия', 'Melody only'), events: melEvents },
+      { label: tr(ctx, 'Медленно', 'Slowly'), events: melEvents.map((e) => ({ ...e, t: e.t * 1.6, d: e.d * 1.4 })) },
       { label: tr(ctx, 'Тоника', 'Tonic'), events: [{ t: 0, d: 1.2, midi: tonic }] },
     ],
     input: 'sequence',
@@ -363,6 +432,8 @@ function genMelody(cfg: Extract<ExerciseConfig, { kind: 'melody' }>, ctx: GenCtx
     answer: ids,
     itemKeys: ids.map((id) => `mel:${id.replace(',', '')}`),
     answerLabel: labels,
+    answerAudio: melEvents,
+    renderSequence: (seq) => seq.map((id, i) => ({ ...melEvents[i], midi: tonic + melSemis(id) })),
     explain: tr(
       ctx,
       `Ноты: ${mel.map((s) => noteName(tonic + s, ctx.naming, ctx.lang)).join(' – ')}`,
@@ -372,33 +443,213 @@ function genMelody(cfg: Extract<ExerciseConfig, { kind: 'melody' }>, ctx: GenCtx
 }
 
 // ───────────────────────── progressions ─────────────────────────
+const chordSymbol = (ctx: GenCtx, tonic: number, r: string) => {
+  const rd = romanById(r);
+  const root = pcName(tonic + rd.root, 'letter', ctx.lang, FLAT_KEYS.has(pc(tonic)));
+  const q = rd.quality;
+  const sym =
+    q.length === 4
+      ? q[1] === 4 && q[3] === 11
+        ? 'maj7'
+        : q[1] === 3 && q[2] === 6
+          ? 'm7♭5'
+          : q[1] === 3
+            ? 'm7'
+            : '7'
+      : q[1] === 3
+        ? q[2] === 6
+          ? '°'
+          : 'm'
+        : '';
+  return root + sym;
+};
+
+/** Accompaniment patterns: one chord per bar of 4 beats. voiced = [bass, ...upper]. */
+export function accompany(voiced: number[][], style: AccompStyle, tempo: number): { events: NoteEvent[]; bar: number } {
+  const beat = (style === 'jazz' ? 0.6 : 0.52) * tempo;
+  const bar = beat * 4;
+  const ev: NoteEvent[] = [];
+  voiced.forEach((v, i) => {
+    const t0 = i * bar;
+    const [bass, ...up] = v;
+    const last = i === voiced.length - 1;
+    switch (style) {
+      case 'block':
+        ev.push({ t: t0, d: bar * 0.95, midi: v, vel: 0.55 });
+        break;
+      case 'ballad': {
+        ev.push({ t: t0, d: bar * 0.98, midi: bass, vel: 0.7 });
+        const arp = [up[0], up[1], up[2] ?? up[0] + 12, up[1], up[0] + 12, up[1], up[2] ?? up[0] + 12, up[1]];
+        if (last) ev.push({ t: t0, d: bar, midi: up, vel: 0.5 });
+        else arp.forEach((m, k) => ev.push({ t: t0 + (k * beat) / 2, d: beat * 0.9, midi: m, vel: 0.45 }));
+        break;
+      }
+      case 'pop':
+        ev.push({ t: t0, d: beat * 1.8, midi: bass, vel: 0.75 }, { t: t0 + 2 * beat, d: beat * 1.8, midi: bass, vel: 0.65 });
+        if (last) ev.push({ t: t0, d: bar, midi: up, vel: 0.5 });
+        else
+          for (const b of [0, 1.5, 2, 3]) ev.push({ t: t0 + b * beat, d: beat * 0.8, midi: up, vel: 0.42 });
+        for (let k = 0; k < 8 && !last; k++) ev.push({ t: t0 + (k * beat) / 2, d: 0.05, midi: 0, drum: 'hat', vel: k % 2 ? 0.25 : 0.4 });
+        ev.push({ t: t0, d: 0.1, midi: 0, drum: 'kick', vel: 0.9 });
+        if (!last) ev.push({ t: t0 + 2 * beat, d: 0.1, midi: 0, drum: 'kick', vel: 0.8 }, { t: t0 + beat, d: 0.1, midi: 0, drum: 'snare', vel: 0.6 }, { t: t0 + 3 * beat, d: 0.1, midi: 0, drum: 'snare', vel: 0.6 });
+        break;
+      case 'strum': {
+        ev.push({ t: t0, d: bar * 0.95, midi: bass, vel: 0.6, inst: 'guitar' });
+        const shape = [bass + 12, ...up].sort((a, b) => a - b);
+        const strokes: [number, boolean][] = last ? [[0, true]] : [[0, true], [1, true], [1.5, false], [2.5, false], [3, true], [3.5, false]];
+        for (const [b, down] of strokes)
+          ev.push({ t: t0 + b * beat, d: last ? bar : beat * 0.9, midi: down ? shape : [...shape].reverse(), vel: down ? 0.5 : 0.35, strum: 0.014, inst: 'guitar' });
+        break;
+      }
+      case 'jazz': {
+        // walking-ish bass: root, chord tone, chord tone, chromatic approach to the next root
+        const next = voiced[i + 1]?.[0] ?? bass;
+        const walk = [bass, bass + (up.includes(bass + 16) ? 4 : 3) + 0, bass + 7, next + (next > bass ? -1 : 1)];
+        if (last) ev.push({ t: t0, d: bar, midi: bass, vel: 0.7 });
+        else walk.forEach((m, k) => ev.push({ t: t0 + k * beat, d: beat * 0.9, midi: m, vel: 0.65, inst: 'guitar' }));
+        ev.push({ t: t0, d: beat * 1.3, midi: up, vel: 0.45, inst: 'epiano' });
+        if (!last) ev.push({ t: t0 + 2.5 * beat, d: beat * 1.2, midi: up, vel: 0.38, inst: 'epiano' });
+        for (const b of [1, 3]) if (!last) ev.push({ t: t0 + b * beat, d: 0.05, midi: 0, drum: 'hat', vel: 0.35 });
+        break;
+      }
+    }
+  });
+  return { events: ev, bar };
+}
+
+const STYLE_NAMES: Record<AccompStyle, [string, string]> = {
+  block: ['аккорды', 'block chords'],
+  ballad: ['фортепианная баллада', 'piano ballad'],
+  pop: ['поп-группа', 'pop band'],
+  strum: ['гитара', 'guitar strum'],
+  jazz: ['джаз-трио', 'jazz trio'],
+};
+
+/** Choose some first inversions (bass on the 3rd) for passing-chord colour, never on the first/last chord. */
+function pickInversions(ctx: GenCtx, romans: string[]): number[] {
+  return romans.map((r, i) => (i > 0 && i < romans.length - 1 && romanById(r).quality.length === 3 && ctx.rng() < 0.35 ? 1 : 0));
+}
+
 function genProgression(cfg: Extract<ExerciseConfig, { kind: 'progression' }>, ctx: GenCtx): Question {
   const minor = !!cfg.minor;
   const tonic = ctx.fixedRoot ? 60 : randInt(ctx.rng, 55, 66);
-  const romans = generateProgression(ctx.rng, cfg.set, cfg.length, minor);
-  const voiced = voiceProgression(tonic, romans);
-  const d = 1.0 * ctx.tempo;
-  const stimulus: NoteEvent[] = voiced.map((v, i) => ({ t: i * d, d: i === voiced.length - 1 ? d * 1.6 : d * 0.97, midi: v, vel: 0.55 }));
+  const romans = generateProgression(ctx.rng, cfg.set, cfg.length, minor, cfg.free);
+  const invs = cfg.inversions ? pickInversions(ctx, romans) : undefined;
+  const voiced = voiceProgression(tonic, romans, invs);
+  const style: AccompStyle = cfg.style ?? 'block';
   const keyName = pcName(tonic, ctx.naming, ctx.lang, FLAT_KEYS.has(pc(tonic)));
-  const choices: Choice[] = cfg.set.map((r) => {
-    const v = voiceChord(tonic, romanById(r));
-    const root = pcName(tonic + romanById(r).root, 'letter', ctx.lang, FLAT_KEYS.has(pc(tonic)));
-    const q = romanById(r).quality;
-    const sym = q.length === 4 ? '7' : q[1] === 3 ? (q[2] === 6 ? '°' : 'm') : '';
-    return { id: r, label: r, sub: root + sym, audio: [{ t: 0, d: 1.2, midi: v, vel: 0.55 }] };
-  });
+  let stimulus: NoteEvent[];
+  let body: NoteEvent[];
+  if (style === 'block' && !cfg.free) {
+    const d = 1.0 * ctx.tempo;
+    body = voiced.map((v, i) => ({ t: i * d, d: i === voiced.length - 1 ? d * 1.6 : d * 0.97, midi: v, vel: 0.55 }));
+    stimulus = body;
+  } else {
+    body = accompany(voiced, style, ctx.tempo).events;
+    // establish the key first when the progression may not start on the tonic
+    const cad = cadenceEvents(tonic, minor, ctx.tempo * 0.8);
+    stimulus = cfg.free ? [...cad.events, ...body.map((e) => ({ ...e, t: e.t + cad.end + 0.5 }))] : body;
+  }
+  const choices: Choice[] = cfg.set.map((r) => ({
+    id: r,
+    label: r,
+    sub: chordSymbol(ctx, tonic, r),
+    audio: [{ t: 0, d: 1.2, midi: voiceChord(tonic, romanById(r)), vel: 0.55 }],
+  }));
+  const given = cfg.free ? 0 : 1;
+  const styleName = STYLE_NAMES[style][ctx.lang === 'ru' ? 0 : 1];
   return {
     kind: 'progression',
-    prompt: tr(ctx, `Какие аккорды? (${keyName} ${minor ? 'минор' : 'мажор'})`, `Name the chords (${keyName} ${minor ? 'minor' : 'major'})`),
+    prompt: cfg.style
+      ? tr(ctx, `Аккорды по тактам (${keyName} ${minor ? 'минор' : 'мажор'}, ${styleName})`, `Chords bar by bar (${keyName} ${minor ? 'minor' : 'major'}, ${styleName})`)
+      : tr(ctx, `Какие аккорды? (${keyName} ${minor ? 'минор' : 'мажор'})`, `Name the chords (${keyName} ${minor ? 'minor' : 'major'})`),
     stimulus,
-    alt: [{ label: tr(ctx, 'Тоника', 'Tonic'), events: [{ t: 0, d: 1.5, midi: voiced[0], vel: 0.55 }] }],
+    alt: [
+      { label: tr(ctx, 'Без вступления', 'No intro'), events: body },
+      { label: tr(ctx, 'Только бас', 'Bass only'), events: voiced.map((v, i) => ({ t: i * 0.9 * ctx.tempo, d: 0.85 * ctx.tempo, midi: v[0] })) },
+      { label: tr(ctx, 'Тоника', 'Tonic'), events: [{ t: 0, d: 1.5, midi: voiceChord(tonic, romanById(minor ? 'i' : 'I')), vel: 0.55 }] },
+    ],
+    input: 'sequence',
+    given,
+    choices,
+    answer: romans,
+    itemKeys: romans.slice(given).map((r) => `prog:${r}`),
+    answerLabel: romans.map((r, i) => (invs?.[i] ? `${r}⁶` : r)).join(' – '),
+    renderSequence: (seq) => {
+      const v = voiceProgression(tonic, seq.map((r) => (cfg.set.includes(r) || romans.includes(r) ? r : romans[0])));
+      return v.map((x, i) => ({ t: i * 0.9 * ctx.tempo, d: 0.85 * ctx.tempo, midi: x, vel: 0.55 }));
+    },
+    explain: invs?.some(Boolean)
+      ? tr(ctx, '⁶ — аккорд с терцией в басу (обращение)', '⁶ = chord with its 3rd in the bass')
+      : tr(ctx, 'Следи за басом и характером: мажор/минор', 'Follow the bass line and major/minor colour'),
+  };
+}
+
+// ───────────────────────── bass line dictation ─────────────────────────
+function genBass(cfg: Extract<ExerciseConfig, { kind: 'bass' }>, ctx: GenCtx): Question {
+  const minor = !!cfg.minor;
+  const tonic = ctx.fixedRoot ? 60 : randInt(ctx.rng, 55, 64);
+  const romans = generateProgression(ctx.rng, cfg.set, cfg.length, minor);
+  const invs = cfg.inversions ? pickInversions(ctx, romans) : romans.map(() => 0);
+  const voiced = voiceProgression(tonic, romans, invs);
+  const d = 1.0 * ctx.tempo;
+  const stimulus: NoteEvent[] = voiced.flatMap((v, i) => [
+    { t: i * d, d: d * 0.97, midi: v[0], vel: 0.85 },
+    { t: i * d, d: d * 0.97, midi: v.slice(1), vel: 0.4 },
+  ]);
+  const degSet = minor ? ['1', '2', 'b3', '4', '5', 'b6', 'b7', '7'] : ['1', '2', '3', '4', '5', '6', '7'];
+  const ids = voiced.map((v) => degreeBySemis(v[0] - tonic).id);
+  const choices: Choice[] = degSet.map((id) => ({ id, ...degreeLabel(ctx, id), audio: [{ t: 0, d: 0.8, midi: tonic - 12 + degreeById(id).semis, vel: 0.85 }] }));
+  return {
+    kind: 'bass',
+    prompt: tr(ctx, 'Запиши ступени баса', 'Write down the bass line (scale degrees)'),
+    stimulus,
+    alt: [
+      { label: tr(ctx, 'Только бас', 'Bass only'), events: voiced.map((v, i) => ({ t: i * d, d: d * 0.95, midi: v[0], vel: 0.9 })) },
+      { label: tr(ctx, 'Тоника', 'Tonic'), events: [{ t: 0, d: 1.2, midi: tonic - 12 }] },
+    ],
     input: 'sequence',
     given: 1,
     choices,
-    answer: romans,
-    itemKeys: romans.slice(1).map((r) => `prog:${r}`),
-    answerLabel: romans.join(' – '),
-    explain: tr(ctx, 'Следи за басом и характером: мажор/минор', 'Follow the bass line and major/minor colour'),
+    answer: ids,
+    itemKeys: ids.slice(1).map((id) => `bass:${id}`),
+    answerLabel: ids.map((id) => degreeById(id).label).join(' – ') + `  (${romans.map((r, i) => (invs[i] ? r + '⁶' : r)).join(' ')})`,
+    renderSequence: (seq) => seq.map((id, i) => ({ t: i * 0.7, d: 0.65, midi: tonic - 12 + degreeById(id).semis, vel: 0.9 })),
+    explain: tr(ctx, 'Бас — фундамент гармонии: по нему проще всего определить аккорд', 'The bass is the foundation: it tells you the chord'),
+  };
+}
+
+// ───────────────────────── cadences ─────────────────────────
+const CADENCES: Record<CadenceType, { ru: string; en: string; sub: string; end: string[] }> = {
+  PAC: { ru: 'Полная', en: 'Authentic', sub: 'V → I', end: ['V7', 'I'] },
+  HC: { ru: 'Половинная', en: 'Half', sub: '… → V', end: ['IV', 'V'] },
+  PC: { ru: 'Плагальная', en: 'Plagal', sub: 'IV → I', end: ['IV', 'I'] },
+  DC: { ru: 'Прерванная', en: 'Deceptive', sub: 'V → vi', end: ['V', 'vi'] },
+};
+
+function genCadence(cfg: Extract<ExerciseConfig, { kind: 'cadence' }>, ctx: GenCtx): Question {
+  const id = pickKey(ctx, cfg.set, (x) => `cad:${x}`);
+  const tonic = ctx.fixedRoot ? 60 : randInt(ctx.rng, 55, 66);
+  const lead = ['I', pick(ctx.rng, id === 'HC' ? ['vi', 'I'] : ['vi', 'IV', 'ii'])];
+  if (id === 'HC') lead[1] = pick(ctx.rng, ['vi', 'iii']);
+  const romans = [...lead, ...CADENCES[id].end];
+  const d = 0.85 * ctx.tempo;
+  const mk = (rs: string[]) => voiceProgression(tonic, rs).map((v, i) => ({ t: i * d, d: i === rs.length - 1 ? d * 2 : d * 0.97, midi: v, vel: 0.55 }));
+  return {
+    kind: 'cadence',
+    prompt: tr(ctx, 'Как закончилась фраза?', 'How does the phrase end?'),
+    stimulus: mk(romans),
+    input: 'choice',
+    choices: cfg.set.map((c) => ({ id: c, label: ctx.lang === 'ru' ? CADENCES[c].ru : CADENCES[c].en, sub: CADENCES[c].sub, audio: mk([...lead, ...CADENCES[c].end]) })),
+    answer: [id],
+    itemKeys: [`cad:${id}`],
+    answerLabel: `${ctx.lang === 'ru' ? CADENCES[id].ru : CADENCES[id].en} (${romans.join(' – ')})`,
+    explain: {
+      PAC: tr(ctx, 'Точка: доминанта пришла домой', 'Full stop: dominant goes home'),
+      HC: tr(ctx, 'Запятая: фраза повисла на доминанте', 'Comma: phrase hangs on V'),
+      PC: tr(ctx, '«Аминь»: мягкое IV → I', '"Amen": soft IV → I'),
+      DC: tr(ctx, 'Обман: ждали I, а пришла vi', 'Surprise: expected I, got vi'),
+    }[id],
   };
 }
 
@@ -459,7 +710,7 @@ function genSing(cfg: Extract<ExerciseConfig, { kind: 'sing' }>, ctx: GenCtx): Q
     const tonic = randInt(ctx.rng, lo + 1, Math.min(hi - 8, lo + 8));
     const deg = degreeById(id);
     const target = tonic + deg.semis;
-    const cad = cadenceEvents(tonic + 12 > 66 ? tonic : tonic + 12, false, ctx.tempo);
+    const cad = cadenceEvents(tonic + 12 > 66 ? tonic : tonic + 12, !!cfg.minor, ctx.tempo);
     const lbl = `${deg.label} (${solf(ctx, deg.solf)})`;
     return {
       ...base,
@@ -469,6 +720,25 @@ function genSing(cfg: Extract<ExerciseConfig, { kind: 'sing' }>, ctx: GenCtx): Q
       answer: [String(target)],
       answerLabel: lbl,
       sing: { targets: [target], target: lbl },
+    };
+  }
+  if (cfg.mode === 'echo') {
+    const set = cfg.set ?? ['1', '2', '3', '4', '5'];
+    const len = cfg.length ?? 3;
+    const tonic = randInt(ctx.rng, lo + 2, Math.max(lo + 2, hi - 9));
+    const mel = generateMelody(ctx.rng, { pool: set.map(melSemis), length: len, startOnTonic: ctx.rng() < 0.5, maxLeap: 4 });
+    const step = 0.6 * ctx.tempo;
+    const chord = voiceChord(tonic + 12, romanById(cfg.minor ? 'i' : 'I'));
+    const targets = mel.map((x) => tonic + x);
+    return {
+      ...base,
+      itemKeys: ['sing:echo'],
+      prompt: tr(ctx, `Повтори голосом фразу: ${len} ${ruPlural(len, 'нота', 'ноты', 'нот')}`, `Sing back the ${len}-note phrase`),
+      stimulus: [{ t: 0, d: 1, midi: chord, vel: 0.4 }, ...targets.map((m, i) => ({ t: 1.3 + i * step, d: step * 0.95, midi: m }))],
+      alt: [{ label: tr(ctx, 'Только фраза', 'Phrase only'), events: targets.map((m, i) => ({ t: i * step, d: step * 0.95, midi: m })) }],
+      answer: targets.map(String),
+      answerLabel: mel.map((x) => degreeBySemis(x).label).join(' '),
+      sing: { targets, target: tr(ctx, `${len} ${ruPlural(len, 'нота', 'ноты', 'нот')}`, `${len} notes`), sequential: true },
     };
   }
   const set = (cfg.set ?? ['4', '7', '12']).map(Number);
@@ -502,6 +772,39 @@ function genRhythm(cfg: Extract<ExerciseConfig, { kind: 'rhythm' }>, ctx: GenCtx
     itemKeys: [`rhythm:${cfg.level}`],
     answerLabel: '',
     rhythm: { pattern, bpm },
+  };
+}
+
+function genRhythmDictation(cfg: Extract<ExerciseConfig, { kind: 'rhythmDictation' }>, ctx: GenCtx): Question {
+  const beats = 4 * (cfg.bars ?? 1);
+  const cells = generateBeatRhythm(ctx.rng, cfg.level, beats);
+  const bpm = Math.round([0, 72, 76, 70, 72][cfg.level] / ctx.tempo);
+  const mk = (ids: string[], speed = 1) => {
+    const beat = 60 / (bpm * speed);
+    const ev: NoteEvent[] = [];
+    for (let i = 0; i < 4; i++) ev.push({ t: i * beat, d: 0.05, midi: 0, drum: 'hat', vel: i === 0 ? 0.6 : 0.4 });
+    const start = 4 * beat;
+    let t = 0;
+    for (const d of cellsToDurations(ids)) {
+      if (d > 0) ev.push({ t: start + (t * beat) / 4, d: Math.min(0.3, ((d * beat) / 4) * 0.9), midi: 74, vel: 0.8 });
+      t += Math.abs(d);
+    }
+    for (let i = 0; i < ids.length; i++) ev.push({ t: start + i * beat, d: 0.05, midi: 0, drum: 'hat', vel: 0.18 });
+    return ev;
+  };
+  const pool = cellsForLevel(cfg.level);
+  return {
+    kind: 'rhythmDictation',
+    prompt: tr(ctx, `Запиши ритм: ${beats / 4} ${ruPlural(beats / 4, 'такт', 'такта', 'тактов')} (после 4 щелчков отсчёта)`, `Write the rhythm: ${beats / 4} bar(s) after a 4-click count-in`),
+    stimulus: mk(cells),
+    alt: [{ label: tr(ctx, 'Медленно', 'Slowly'), events: mk(cells, 0.7) }],
+    input: 'sequence',
+    choices: pool.map((c) => ({ id: c.id, label: '', glyph: c.id, sub: ctx.lang === 'ru' ? c.ru : c.en, audio: mk([c.id]).slice(4) .map((e) => ({ ...e, t: e.t - 4 * (60 / bpm) })) })),
+    answer: cells,
+    itemKeys: cells.map((c) => `rdict:${c}`),
+    answerLabel: '',
+    renderSequence: (ids) => mk(ids),
+    explain: tr(ctx, 'Считай «раз-и, два-и…» и представляй, где внутри доли звучат ноты', 'Count "1-and-2-and…" and place notes inside each beat'),
   };
 }
 

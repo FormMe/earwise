@@ -19,6 +19,8 @@ interface Host {
 
 const KEYS = ['settings', 'onboarded', 'xp', 'days', 'streak', 'freezes', 'lessons', 'items', 'achievements', 'highs', 'totals', 'dailyDone'] as const;
 const STAMP = 'earwise-updated-at';
+/** bump together with the store's persist version when lesson ids change */
+const SCHEMA = 2;
 
 function readStamp() {
   try {
@@ -59,7 +61,8 @@ export async function startCloudSync() {
   let localStamp = readStamp();
   try {
     const snap = await ref.get();
-    const remote = snap.exists ? (snap.data() as { state?: Record<string, unknown>; updatedAt?: number }) : undefined;
+    const remote = snap.exists ? (snap.data() as { state?: Record<string, unknown>; updatedAt?: number; v?: number }) : undefined;
+    if (remote?.state && (remote.v ?? 1) < SCHEMA) remote.state = { ...remote.state, lessons: {} };
     const local = useStore.getState();
     if (remote?.state && ((remote.updatedAt ?? 0) > localStamp || Number(remote.state.xp ?? 0) > local.xp)) {
       applying = true;
@@ -69,7 +72,7 @@ export async function startCloudSync() {
       localStamp = remote.updatedAt ?? Date.now();
       writeStamp(localStamp);
     } else if (local.onboarded || local.xp > 0) {
-      await ref.set({ state: snapshot(), updatedAt: localStamp || Date.now() });
+      await ref.set({ state: snapshot(), updatedAt: localStamp || Date.now(), v: SCHEMA });
     }
     useCloud.setState({ status: 'ok' });
   } catch {
@@ -89,7 +92,7 @@ export async function startCloudSync() {
     }
     writing = true;
     try {
-      await ref.set({ state: snapshot(), updatedAt: readStamp() });
+      await ref.set({ state: snapshot(), updatedAt: readStamp(), v: SCHEMA });
       useCloud.setState({ status: 'ok' });
     } catch {
       useCloud.setState({ status: 'error' });

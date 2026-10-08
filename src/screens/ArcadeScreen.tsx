@@ -9,6 +9,8 @@ export function ArcadeScreen() {
   const lang = useLang();
   const highs = useStore((s) => s.highs);
   const lessons = useStore((s) => s.lessons);
+  const items = useStore((s) => s.items);
+  const unlockAll = useStore((s) => s.settings.unlockAll);
   const dailyDone = useStore((s) => s.dailyDone) === todayStr();
   const startSession = useNav((s) => s.startSession);
   const go = (spec: Parameters<typeof startSession>[0]) => {
@@ -19,7 +21,7 @@ export function ArcadeScreen() {
     <div className="page">
       <h1 className="page-title">{t('arcadeTitle')}</h1>
       <div className="arcade-list">
-        <button className="arcade-card blitz" onClick={() => go(blitzSpec(lessons, lang))}>
+        <button className="arcade-card blitz" onClick={() => go(blitzSpec(lessons, lang, unlockAll))}>
           <div className="ac-icon">⚡</div>
           <div className="ac-body">
             <h2>{t('blitz')}</h2>
@@ -30,7 +32,7 @@ export function ArcadeScreen() {
             <b>{highs.blitz ?? 0}</b>
           </div>
         </button>
-        <button className="arcade-card survival" onClick={() => go(survivalSpec(lang))}>
+        <button className="arcade-card survival" onClick={() => go(survivalSpec(lessons, lang, unlockAll))}>
           <div className="ac-icon">❤️</div>
           <div className="ac-body">
             <h2>{t('survival')}</h2>
@@ -41,7 +43,7 @@ export function ArcadeScreen() {
             <b>{highs.survival ?? 0}</b>
           </div>
         </button>
-        <button className={`arcade-card daily ${dailyDone ? 'done' : ''}`} onClick={() => go(dailySpec(lang))}>
+        <button className={`arcade-card daily ${dailyDone ? 'done' : ''}`} onClick={() => go(dailySpec(lessons, items, lang, unlockAll))}>
           <div className="ac-icon">📆</div>
           <div className="ac-body">
             <h2>{t('daily')}</h2>

@@ -93,9 +93,11 @@ describe('theory', () => {
     expect(levelFromXp(0)).toBe(1);
     expect(levelFromXp(xpForLevel(2))).toBe(2);
     expect(levelFromXp(xpForLevel(5) - 1)).toBe(4);
-    expect(starsFor(0.5)).toBe(0);
-    expect(starsFor(0.6)).toBe(1);
+    expect(starsFor(0.6)).toBe(0);
+    expect(starsFor(0.8)).toBe(1);
+    expect(starsFor(0.9)).toBe(2);
     expect(starsFor(1)).toBe(3);
+    expect(starsFor(0.84, 0.85)).toBe(0);
   });
 });
 
@@ -116,7 +118,7 @@ describe('every lesson generates valid questions', () => {
           expect(q.itemKeys.length).toBe(q.answer.length - (q.given ?? 0));
         }
         // everything audible should be in a sane MIDI range
-        for (const e of q.stimulus) for (const m of Array.isArray(e.midi) ? e.midi : [e.midi]) {
+        for (const e of q.stimulus.filter((x) => !x.drum)) for (const m of Array.isArray(e.midi) ? e.midi : [e.midi]) {
           expect(m).toBeGreaterThanOrEqual(28);
           expect(m).toBeLessThanOrEqual(100);
         }
@@ -126,5 +128,38 @@ describe('every lesson generates valid questions', () => {
 
   it('sampleKeys finds keys for review', () => {
     expect(sampleKeys({ kind: 'interval', set: [3, 4], dirs: ['up'] }).sort()).toEqual(['int:3:up', 'int:4:up']);
+  });
+});
+
+import { generateBeatRhythm, cellsToDurations } from '../theory/rhythmCells';
+import { isUnlocked, questionCount, lessonById, UNITS } from '../game/curriculum';
+
+describe('methodology', () => {
+  it('beat rhythms fill every beat', () => {
+    const rng = mulberry32(3);
+    for (let lvl = 1; lvl <= 4; lvl++) {
+      const r = generateBeatRhythm(rng, lvl, 8);
+      expect(r).toHaveLength(8);
+      expect(Math.round(cellsToDurations(r).reduce((a, b) => a + Math.abs(b), 0))).toBe(32);
+    }
+  });
+
+  it('two-option lessons are long enough to rule out guessing', () => {
+    expect(questionCount(lessonById('a7')!)).toBe(16);
+    expect(questionCount(lessonById('f8')!)).toBe(30);
+  });
+
+  it('units have enough lessons and end with a checkpoint', () => {
+    for (const u of UNITS.filter((x) => !x.optional)) {
+      expect(u.lessons.length).toBeGreaterThanOrEqual(7);
+      expect(u.lessons[u.lessons.length - 1].checkpoint).toBe(true);
+    }
+  });
+
+  it('checkpoints are always open, lessons unlock in order', () => {
+    expect(isUnlocked('b10', {}, false)).toBe(true);
+    expect(isUnlocked('b1', {}, false)).toBe(false);
+    expect(isUnlocked('a2', { a1: { stars: 1 } }, false)).toBe(true);
+    expect(isUnlocked('o1', {}, false)).toBe(true);
   });
 });

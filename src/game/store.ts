@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Instrument } from '../audio/synth';
 import type { NoteNaming } from '../theory/notes';
 import { ACHIEVEMENTS, AchievementCtx } from './achievements';
+import { lessonById, lessonsBefore } from './curriculum';
 
 export type Lang = 'ru' | 'en';
 
@@ -28,7 +29,15 @@ export interface ItemStat {
   s: number;
   /** last seen, epoch ms */
   t: number;
+  /** Leitner box 0..5 (spaced repetition) */
+  b?: number;
+  /** next review due, epoch ms */
+  due?: number;
 }
+
+/** Review intervals per Leitner box, in days. */
+export const BOX_DAYS = [0, 1, 3, 7, 16, 35];
+const DAY = 86400000;
 
 export interface LessonProgress {
   stars: number;
@@ -45,6 +54,7 @@ export interface SessionResult {
   maxCombo: number;
   score?: number;
   kinds: string[];
+  pass?: number;
 }
 
 export interface FinishOutcome {
@@ -99,8 +109,10 @@ export function levelFromXp(xp: number) {
   return l;
 }
 
-export function starsFor(acc: number) {
-  return acc >= 0.9 ? 3 : acc >= 0.75 ? 2 : acc >= 0.6 ? 1 : 0;
+/** Pass = 80%: below that the learner hasn't shown the skill (2-option lessons are guessable at 60%). */
+export const PASS = 0.8;
+export function starsFor(acc: number, pass = PASS) {
+  return acc >= 0.97 ? 3 : acc >= Math.min(0.9, pass + 0.08) ? 2 : acc >= pass ? 1 : 0;
 }
 
 const defaultLang = (): Lang => {
@@ -157,7 +169,12 @@ export const useStore = create<State>()(
         const now = Date.now();
         for (const k of keys) {
           const it = items[k] ?? { n: 0, c: 0, s: 0, t: 0 };
-          items[k] = { n: it.n + 1, c: it.c + (correct ? 1 : 0), s: correct ? it.s + 1 : 0, t: now };
+          const prevBox = it.b ?? 0;
+          // promote at most once per due period, so drilling the same day doesn't fake long-term memory
+          const isDue = !it.due || it.due <= now;
+          const b = correct ? (isDue ? Math.min(5, prevBox + 1) : prevBox) : 0;
+          const due = correct ? (isDue ? now + BOX_DAYS[b] * DAY : it.due) : now + 10 * 60000;
+          items[k] = { n: it.n + 1, c: it.c + (correct ? 1 : 0), s: correct ? it.s + 1 : 0, t: now, b, due };
         }
         const totals = get().totals;
         set({ items, totals: { ...totals, answers: totals.answers + 1, correct: totals.correct + (correct ? 1 : 0) } });
@@ -199,8 +216,11 @@ export const useStore = create<State>()(
         if (r.mode === 'lesson' && r.lessonId) {
           const lp = lessons[r.lessonId] ?? { stars: 0, best: 0, plays: 0 };
           prevStars = lp.stars;
-          stars = starsFor(acc);
+          stars = starsFor(acc, r.pass);
           lessons[r.lessonId] = { stars: Math.max(lp.stars, stars), best: Math.max(lp.best, acc), plays: lp.plays + 1 };
+          // passing a checkpoint opens everything before it (jumping ahead for experienced musicians)
+          if (stars > 0 && lessonById(r.lessonId)?.checkpoint)
+            for (const l of lessonsBefore(r.lessonId)) if (!(lessons[l.id]?.stars > 0)) lessons[l.id] = { stars: 1, best: lessons[l.id]?.best ?? 0, plays: lessons[l.id]?.plays ?? 0 };
         }
 
         const highs = { ...st.highs };
@@ -252,6 +272,13 @@ export const useStore = create<State>()(
     }),
     {
       name: 'earwise-v1',
+      // v2: new curriculum with different lesson ids — lesson stars are reset, everything else is kept
+      version: 2,
+      migrate: (persisted, version) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        if (version < 2) p.lessons = {};
+        return p as unknown as State;
+      },
       storage: createJSONStorage(() => {
         try {
           localStorage.setItem('__t', '1');
@@ -281,13 +308,18 @@ export function itemAcc(it?: ItemStat) {
 }
 
 /** Weight for adaptive item selection: weak and unseen items come up more often. */
-export function itemWeight(items: Record<string, ItemStat>, key: string) {
+export function itemWeight(items: Record<string, ItemStat>, key: string, now = Date.now()) {
   const it = items[key];
   if (!it || it.n === 0) return 2.2;
   const acc = itemAcc(it);
-  const mastered = it.s >= 6 ? 0.6 : 1;
-  return (0.8 + 3 * (1 - acc)) * mastered;
+  const box = it.b ?? 0;
+  // overdue items come up more, well-learned (high box, not due) less
+  const overdue = it.due != null && it.due <= now ? 1.6 : box >= 3 ? 0.55 : 1;
+  return (0.8 + 3 * (1 - acc)) * overdue;
 }
+
+export const isDue = (it: ItemStat | undefined, now = Date.now()) => !!it && it.n > 0 && (it.due ?? 0) <= now;
+export const isMastered = (it: ItemStat | undefined) => !!it && (it.b ?? 0) >= 3;
 
 export function currentStreak(st: { streak: { count: number; last: string | null }; freezes: number }) {
   if (!st.streak.last) return 0;

@@ -31,7 +31,16 @@ export const ROMANS: RomanDef[] = [
   { id: '♭III', root: 3, quality: MAJ },
   { id: 'iv', root: 5, quality: MIN },
   { id: 'II', root: 2, quality: MAJ },
+  // sevenths / secondary dominants
+  { id: 'Imaj7', root: 0, quality: [0, 4, 7, 11] },
+  { id: 'ii7', root: 2, quality: [0, 3, 7, 10] },
+  { id: 'IVmaj7', root: 5, quality: [0, 4, 7, 11] },
+  { id: 'vi7', root: 9, quality: [0, 3, 7, 10] },
+  { id: 'I7', root: 0, quality: [0, 4, 7, 10] },
+  { id: 'III7', root: 4, quality: [0, 4, 7, 10] },
+  { id: 'VI7', root: 9, quality: [0, 4, 7, 10] },
   // minor key
+  { id: 'iiø7', root: 2, quality: [0, 3, 6, 10], minorKey: true },
   { id: 'i', root: 0, quality: MIN, minorKey: true },
   { id: 'ii°', root: 2, quality: DIM, minorKey: true },
   { id: 'III', root: 3, quality: MAJ, minorKey: true },
@@ -64,15 +73,28 @@ const PULL: Record<string, Record<string, number>> = {
   VII: { III: 5, i: 4 },
   III: { VI: 4, iv: 3 },
   'ii°': { V: 6 },
+  'iiø7': { V7: 8, V: 6 },
+  Imaj7: { ii7: 4, vi7: 4, IVmaj7: 4, VI7: 3 },
+  ii7: { V7: 9, V: 6 },
+  IVmaj7: { V7: 3, ii7: 2, Imaj7: 3 },
+  vi7: { ii7: 6, IVmaj7: 3 },
+  I7: { IV: 8, IVmaj7: 6 },
+  III7: { vi: 8, vi7: 7 },
+  VI7: { ii: 7, ii7: 7 },
+  II: { V: 7, V7: 7 },
   v: { VI: 4, i: 3 },
 };
 
-export function generateProgression(rng: Rng, pool: string[], length: number, minor = false): string[] {
-  const tonic = minor ? 'i' : 'I';
-  const seq = [tonic];
+export function generateProgression(rng: Rng, pool: string[], length: number, minor = false, free = false): string[] {
+  const base = minor ? 'i' : 'I';
+  // jazz pools use Imaj7 / i7 etc. as their tonic
+  const tonic = pool.includes(base) ? base : (pool.find((r) => new RegExp(`^${base}(maj7|7|m7)?$`).test(r)) ?? pool[0]);
+  // free progressions may start anywhere (like a loop entering mid-song) and repeat chords
+  const first = free && rng() < 0.45 ? weightedPick(rng, pool, (c) => (c === tonic ? 0 : 1)) : tonic;
+  const seq = [first];
   while (seq.length < length) {
     const prev = seq[seq.length - 1];
-    const candidates = pool.filter((c) => c !== prev);
+    const candidates = free && rng() < 0.12 ? pool : pool.filter((c) => c !== prev);
     const isLast = seq.length === length - 1;
     const next = weightedPick(rng, candidates, (c) => {
       let w = PULL[prev]?.[c] ?? 1;
@@ -86,7 +108,7 @@ export function generateProgression(rng: Rng, pool: string[], length: number, mi
 }
 
 /** Voice a chord close to the previous voicing (smooth voice leading). Returns midi notes (bass first). */
-export function voiceChord(tonicMidi: number, roman: RomanDef, prevUpper?: number[]): number[] {
+export function voiceChord(tonicMidi: number, roman: RomanDef, prevUpper?: number[], inversion = 0): number[] {
   const rootPc = pc(tonicMidi + roman.root);
   const pcs = roman.quality.map((q) => pc(rootPc + q));
   // Upper voices live in G3..F5 area
@@ -123,7 +145,8 @@ export function voiceChord(tonicMidi: number, roman: RomanDef, prevUpper?: numbe
     // prefer voicings centered around E4
     best = candidates.reduce((a, b) => (Math.abs(avg(a) - 66) < Math.abs(avg(b) - 66) ? a : b));
   }
-  let bass = 36 + pc(rootPc - 36);
+  const bassPc = pc(rootPc + roman.quality[Math.min(inversion, roman.quality.length - 1)]);
+  let bass = 36 + pc(bassPc - 36);
   if (bass < 40) bass += 12;
   return [bass, ...best];
 }
@@ -138,11 +161,11 @@ function voiceDistance(a: number[], b: number[]) {
   return cost;
 }
 
-export function voiceProgression(tonicMidi: number, romans: string[]): number[][] {
+export function voiceProgression(tonicMidi: number, romans: string[], inversions?: number[]): number[][] {
   const out: number[][] = [];
   let prev: number[] | undefined;
-  for (const id of romans) {
-    const v = voiceChord(tonicMidi, romanById(id), prev);
+  for (const [i, id] of romans.entries()) {
+    const v = voiceChord(tonicMidi, romanById(id), prev, inversions?.[i] ?? 0);
     out.push(v);
     prev = v.slice(1);
   }

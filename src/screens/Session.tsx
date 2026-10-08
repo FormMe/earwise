@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { audio, NoteEvent } from '../audio/engine';
 import { generate } from '../exercises/generate';
-import type { Question } from '../exercises/types';
+import type { ExerciseConfig, Question } from '../exercises/types';
+import type { Instrument } from '../audio/synth';
 import { useNav, SessionSpec } from '../game/nav';
 import { FinishOutcome, itemWeight, starsFor, useStore } from '../game/store';
 import { useT } from '../i18n';
@@ -11,6 +12,8 @@ import { Piano } from '../components/Piano';
 import { SingInput, stopMic } from '../components/SingInput';
 import { RhythmInput } from '../components/RhythmInput';
 import { Results } from './Results';
+import { RhythmGlyph } from '../components/RhythmGlyph';
+import { lessonById } from '../game/curriculum';
 import { haptic } from '../components/haptics';
 
 interface Mistake {
@@ -19,6 +22,20 @@ interface Mistake {
 }
 
 const TEMPO = { slow: 1.35, normal: 1, fast: 0.78 };
+
+type SQuestion = Question & { review?: boolean; cfg?: ExerciseConfig };
+
+/** Play a question on a random instrument (timbre variety builds transferable hearing). */
+function retimbre(q: Question, rng: Rng) {
+  const lowest = Math.min(...q.stimulus.flatMap((e) => (e.drum ? [] : Array.isArray(e.midi) ? e.midi : [e.midi])));
+  const opts: Instrument[] = ['piano', 'epiano', 'guitar', 'eguitar'];
+  // the recorder only sounds natural in its own (high) register
+  if (lowest >= 60) opts.push('recorder');
+  const inst = opts[Math.floor(rng() * opts.length)];
+  const map = (ev?: NoteEvent[]) => ev?.forEach((e) => (e.inst ??= inst));
+  map(q.stimulus);
+  q.choices.forEach((c) => map(c.audio));
+}
 
 export function Session({ spec }: { spec: SessionSpec }) {
   const t = useT();
@@ -30,7 +47,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const startSession = useNav((s) => s.startSession);
 
   const rng = useRef<Rng>(spec.seed ? mulberry32(spec.seed) : Math.random);
-  const [q, setQ] = useState<Question | null>(null);
+  const [q, setQ] = useState<SQuestion | null>(null);
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<'answer' | 'feedback' | 'done'>('answer');
   const [picked, setPicked] = useState<string[]>([]);
@@ -48,32 +65,70 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const [outcome, setOutcome] = useState<FinishOutcome | null>(null);
   const [kinds, setKinds] = useState<string[]>([]);
   const [askQuit, setAskQuit] = useState(false);
+  const [showIntro, setShowIntro] = useState(!!spec.intro);
   const playToken = useRef(0);
+  const introRef = useRef(!!spec.intro);
   const prevKey = useRef<string | undefined>(undefined);
   const nextTimer = useRef<number | null>(null);
   const finished = useRef(false);
 
+  // per-session state that shapes question choice
+  const seen = useRef<Record<string, number>>({});
+  const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number }[]>([]);
+  const held = useRef<{ tonic: number; left: number } | null>(null);
+
   const makeQuestion = useCallback(
     (i: number, score: number) => {
       let cfg = spec.configs[0];
-      if (spec.escalate) {
+      let review = false;
+      const primary = spec.primary ?? spec.configs.length;
+      let forced: string | undefined;
+      const due = retries.current.find((r) => r.at <= i);
+      if (due) {
+        // a missed item comes back a few questions later
+        retries.current = retries.current.filter((r) => r !== due);
+        cfg = due.cfg;
+        forced = due.key;
+      } else if (spec.escalate) {
         const n = Math.min(spec.configs.length, 3 + Math.floor(score / 3));
         cfg = pick(rng.current, spec.configs.slice(0, n));
       } else if (spec.mode === 'daily') cfg = spec.configs[i % spec.configs.length];
-      else if (spec.configs.length > 1) cfg = pick(rng.current, spec.configs);
+      else if (spec.mix && primary < spec.configs.length && i > 0 && rng.current() < spec.mix) {
+        cfg = pick(rng.current, spec.configs.slice(primary));
+        review = true;
+      } else if (primary > 1) cfg = pick(rng.current, spec.configs.slice(0, primary));
       const items = useStore.getState().items;
+      // hold the key for 5 questions in holdKey drills
+      let keyTonic: number | undefined;
+      let keyIsNew = false;
+      if (cfg.kind === 'degree' && cfg.holdKey) {
+        if (!held.current || held.current.left <= 0) {
+          held.current = { tonic: settings.fixedRoot ? 60 : 55 + Math.floor(rng.current() * 12), left: 5 };
+          keyIsNew = true;
+        }
+        held.current.left--;
+        keyTonic = held.current.tonic;
+      }
       const question = generate(cfg, {
         rng: rng.current,
-        weight: (k) => itemWeight(items, k),
+        weight: (k) => {
+          if (forced) return k === forced ? 1000 : 0.001;
+          // make sure every item comes up (and is answered) at least twice in a lesson
+          const cover = (seen.current[k] ?? 0) < 2 ? 2.5 : 0.8;
+          return itemWeight(items, k) * cover;
+        },
         lang: settings.lang,
         naming: settings.naming,
         fixedRoot: settings.fixedRoot,
         tempo: TEMPO[settings.tempo],
         voice: settings.voice,
-        prevKey: prevKey.current,
+        prevKey: forced ? undefined : prevKey.current,
+        keyTonic,
+        keyIsNew,
       });
       prevKey.current = question.itemKeys[0];
-      return question;
+      if (spec.randomTimbre) retimbre(question, rng.current);
+      return { ...question, review, cfg };
     },
     [spec, settings],
   );
@@ -92,7 +147,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       setIsCorrect(null);
       setPhase('answer');
       setKinds((k) => (k.includes(question.kind) ? k : [...k, question.kind]));
-      if (question.input !== 'rhythm') setTimeout(() => play(question.stimulus), 250);
+      if (question.input !== 'rhythm' && !introRef.current) setTimeout(() => play(question.stimulus), 250);
     },
     [play],
   );
@@ -117,7 +172,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       stopMic();
       const f = final ?? { correct, total, xp, maxCombo };
       const acc = f.total ? f.correct / f.total : 0;
-      const bonus = spec.mode === 'lesson' ? starsFor(acc) * 5 : 0;
+      const bonus = spec.mode === 'lesson' ? starsFor(acc, spec.pass) * 5 : 0;
       const res = finishSession({
         mode: spec.mode,
         lessonId: spec.lessonId,
@@ -127,6 +182,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         maxCombo: f.maxCombo,
         score: f.correct,
         kinds,
+        pass: spec.pass,
       });
       setXp(f.xp + bonus);
       setOutcome(res);
@@ -168,6 +224,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
       if (q.input === 'sequence') {
         q.answer.slice(given).forEach((a, i) => recordAnswer([q.itemKeys[i]], user[i + given] === a));
       } else recordAnswer(q.itemKeys, ok);
+      if (ok) q.itemKeys.forEach((k) => (seen.current[k] = (seen.current[k] ?? 0) + 1));
+      else if (q.cfg && (q.input === 'choice' || q.input === 'keys') && spec.mode !== 'blitz' && spec.mode !== 'survival')
+        retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at: idx + 2 + Math.floor(Math.random() * 3) });
       if (q.input === 'sing' && ok) recordSung();
 
       const newCombo = ok ? combo + 1 : 0;
@@ -309,6 +368,67 @@ export function Session({ spec }: { spec: SessionSpec }) {
     );
   if (!q) return null;
 
+  const showLabel = (id?: string) => {
+    if (!id) return '';
+    const c = q.choices.find((x) => x.id === id);
+    if (c?.glyph) return <RhythmGlyph id={c.glyph} size={34} />;
+    return c?.label ?? id;
+  };
+
+  if (showIntro) {
+    const sample = q;
+    const degreeCtx = sample.kind === 'degree' ? sample.stimulus.slice(0, -1) : null;
+    const lastT = degreeCtx ? sample.stimulus[sample.stimulus.length - 1].t : 0;
+    const lesson = spec.lessonId ? lessonById(spec.lessonId) : undefined;
+    const intro = lesson?.intro?.[settings.lang];
+    const listable = sample.choices.filter((c) => c.audio);
+    return (
+      <div className="session intro">
+        <header className="session-top">
+          <button className="icon-btn" onClick={back} aria-label={t('quit')}>
+            ✕
+          </button>
+          <div className="session-title">{t('introTitle')}</div>
+        </header>
+        <main className="intro-body">
+          <h2 className="prompt">{spec.title}</h2>
+          {intro && <p className="intro-text">{intro}</p>}
+          {listable.length > 0 && (
+            <>
+              <p className="muted small center">🎧 {t('introListen')}</p>
+              <div className={`choices intro-choices n${listable.length}`}>
+                {listable.map((c) => (
+                  <button
+                    key={c.id}
+                    className="choice"
+                    onClick={() => play(degreeCtx ? [...degreeCtx, ...c.audio!.map((e) => ({ ...e, t: e.t + lastT }))] : c.audio!)}
+                  >
+                    <span className="choice-label">{c.glyph ? <RhythmGlyph id={c.glyph} size={40} /> : <>▶ {c.label}</>}</span>
+                    {c.sub && <span className="choice-sub">{c.sub}</span>}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <button className="chip center-chip" onClick={() => play(sample.stimulus)}>
+            ▶ {t('introExample')}
+          </button>
+        </main>
+        <button
+          className="btn primary big block"
+          onClick={() => {
+            audio.stopAll();
+            setShowIntro(false);
+            introRef.current = false;
+            if (q.input !== 'rhythm') setTimeout(() => play(q.stimulus), 250);
+          }}
+        >
+          {t('introStart')}
+        </button>
+      </div>
+    );
+  }
+
   const progress = spec.count ? (total / spec.count) * 100 : spec.timeLimit ? (timeLeft / spec.timeLimit) * 100 : 0;
   const given = q.given ?? 0;
 
@@ -343,6 +463,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       </header>
 
       <main className="session-body">
+        {q.review && <div className="review-tag">↻ {t('reviewTag')}</div>}
         <h2 className="prompt">{q.prompt}</h2>
 
         {q.input !== 'rhythm' && (
@@ -393,21 +514,21 @@ export function Session({ spec }: { spec: SessionSpec }) {
             <div className="slots">
               {q.answer.map((a, i) => {
                 const v = picked[i];
-                const label = v ? q.choices.find((c) => c.id === v)?.label ?? v : '';
+                const label = showLabel(v);
                 const st = phase === 'feedback' && i >= given ? (v === a ? 'ok' : 'bad') : i < given ? 'given' : '';
                 return (
                   <div key={i} className={`slot ${st} ${i === picked.length && phase === 'answer' ? 'cur' : ''}`}>
                     <span>{label}</span>
-                    {phase === 'feedback' && v !== a && i >= given && <small>{q.choices.find((c) => c.id === a)?.label}</small>}
+                    {phase === 'feedback' && v !== a && i >= given && <small>{showLabel(a)}</small>}
                   </div>
                 );
               })}
             </div>
             <div className={`choices seq n${q.choices.length}`}>
               {q.choices.map((c) => (
-                <button key={c.id} className="choice small" onClick={() => onChoice(c.id)}>
-                  <span className="choice-label">{c.label}</span>
-                  {c.sub && <span className="choice-sub">{c.sub}</span>}
+                <button key={c.id} className={`choice small ${c.glyph ? 'glyph' : ''}`} onClick={() => onChoice(c.id)} title={c.glyph ? c.sub : undefined}>
+                  <span className="choice-label">{c.glyph ? <RhythmGlyph id={c.glyph} size={38} /> : c.label}</span>
+                  {c.sub && !c.glyph && <span className="choice-sub">{c.sub}</span>}
                 </button>
               ))}
             </div>
@@ -425,7 +546,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         )}
 
         {q.input === 'sing' && q.sing && (
-          <SingInput key={idx} targets={q.sing.targets} targetLabel={q.sing.target} busy={playing} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
+          <SingInput key={idx} targets={q.sing.targets} sequential={q.sing.sequential} targetLabel={q.sing.target} busy={playing} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
         )}
 
         {q.input === 'rhythm' && q.rhythm && (
@@ -460,6 +581,16 @@ export function Session({ spec }: { spec: SessionSpec }) {
             )}
             {isCorrect && q.answerLabel && q.input !== 'choice' && <div className="fb-answer">{q.answerLabel}</div>}
             {q.explain && <div className="fb-explain">{q.explain}</div>}
+            {!isCorrect && q.input === 'sequence' && q.renderSequence && (
+              <div className="row gap">
+                <button className="chip" onClick={() => play(q.renderSequence!(picked))}>
+                  {t('yourVersion')}
+                </button>
+                <button className="chip on" onClick={() => play(q.answerAudio ?? q.renderSequence!(q.answer))}>
+                  {t('rightVersion')}
+                </button>
+              </div>
+            )}
             {!isCorrect && (q.input === 'choice' || q.input === 'sequence' || q.input === 'keys') && <div className="fb-hint">{t('compare')}</div>}
             <button className={`btn big ${isCorrect ? 'success' : 'danger'}`} onClick={advance}>
               {t('next')}

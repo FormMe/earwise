@@ -17,6 +17,15 @@ export interface SessionSpec {
   xpMult?: number;
   /** survival: configs are ordered by difficulty and unlocked progressively */
   escalate?: boolean;
+  /** configs[0..primary-1] are the lesson's own; the rest are review material mixed in at `mix` rate */
+  primary?: number;
+  mix?: number;
+  /** accuracy needed to pass */
+  pass?: number;
+  /** show the intro card before the first question */
+  intro?: boolean;
+  /** play each question on a random instrument */
+  randomTimbre?: boolean;
 }
 
 type Screen = { name: 'tabs' } | { name: 'session'; spec: SessionSpec; key: number } | { name: 'reference' };
