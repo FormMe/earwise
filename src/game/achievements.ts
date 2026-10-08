@@ -2,6 +2,8 @@ import type { ItemStat, LessonProgress, SessionResult } from './store';
 import { UNITS } from './curriculum';
 
 export interface AchievementCtx {
+  /** the session that just ended was a passed lesson */
+  passedNow?: boolean;
   xp: number;
   streak: { count: number; best: number };
   lessons: Record<string, LessonProgress>;
@@ -25,7 +27,7 @@ const unitDone = (c: AchievementCtx, unitId: string) => {
 };
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first', icon: '🎧', ru: ['Первый звук', 'Пройди первый урок'], en: ['First sound', 'Pass your first lesson'], check: (c) => Object.values(c.lessons).some((l) => l.stars > 0) },
+  { id: 'first', icon: '🎧', ru: ['Первый звук', 'Пройди первый урок'], en: ['First sound', 'Pass your first lesson'], check: (c) => !!c.passedNow },
   { id: 'perfect', icon: '💎', ru: ['Без ошибок', 'Пройди урок на 100%'], en: ['Flawless', 'Finish a lesson with 100%'], check: (c) => c.totals.perfect >= 1 },
   { id: 'perfect10', icon: '👑', ru: ['Перфекционист', '10 идеальных занятий'], en: ['Perfectionist', '10 perfect sessions'], check: (c) => c.totals.perfect >= 10 },
   { id: 'combo10', icon: '🔥', ru: ['В ударе', 'Серия из 10 верных ответов'], en: ['On fire', '10 correct in a row'], check: (c) => c.totals.bestCombo >= 10 },

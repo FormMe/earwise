@@ -676,8 +676,11 @@ h3 {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--bg);
-  padding-block: 8px;
+  /* full-bleed, fading into the page instead of a hard box */
+  margin-inline: -16px;
+  padding: 8px 16px;
+  background: linear-gradient(var(--bg) 75%, transparent);
+  backdrop-filter: blur(8px);
 }
 .session-title {
   flex: 1;
@@ -1081,8 +1084,16 @@ h3 {
   background: var(--bad) !important;
   color: #fff;
 }
-.pk.off {
+.pk.white.off {
   opacity: 0.35;
+}
+.pk.black.off {
+  filter: brightness(0.6);
+}
+@media (max-width: 359px) {
+  .pk.black span {
+    display: none;
+  }
 }
 .free-piano .piano {
   height: 220px;
@@ -1207,6 +1218,9 @@ h3 {
   background: var(--card);
   border-radius: 14px;
   margin: 0 8px;
+  /* dots at the very start/end stay inside the rounded box */
+  box-sizing: border-box;
+  border-inline: 12px solid var(--card);
 }
 .tl-beat {
   position: absolute;
@@ -1344,7 +1358,7 @@ h3 {
 .stat-card.acc {
   background: #2fd27a;
 }
-.stat-card.combo {
+.stat-card.streak-card {
   background: #ff5c8a;
 }
 .banners {
@@ -2169,7 +2183,7 @@ input[type='range'] {
   padding: 0 2px;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .s-none {
   background: #ffffff0d;
@@ -2406,5 +2420,78 @@ h2 {
   }
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* dictation slots: one labelled group per voice / step, short rows */
+.slot-groups {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.slot-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.slot-group-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.slot-groups .slots {
+  flex-wrap: nowrap;
+}
+
+/* path: the caption hides while its popover is open */
+.node-wrap.sel .node-caption {
+  visibility: hidden;
+}
+
+/* help modal: glossary toggle as a proper control; the modal scrolls, "Got it" stays reachable */
+.modal summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.modal summary::-webkit-details-marker {
+  display: none;
+}
+.modal summary::after {
+  content: '›';
+  margin-left: auto;
+  font-size: 20px;
+  transition: transform 0.2s;
+}
+.modal details[open] > summary::after {
+  transform: rotate(90deg);
+}
+.modal.help {
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.modal.help > .btn.primary:last-child {
+  position: sticky;
+  bottom: 0;
+}
+
+/* short screens: the play button floats in the middle of the free space instead of leaving a gap */
+.session-body > .play-area {
+  margin-block: auto;
+}
+
+@media (max-width: 340px) {
+  .bottom-nav .bn-label {
+    font-size: 10px;
+    letter-spacing: -0.2px;
   }
 }

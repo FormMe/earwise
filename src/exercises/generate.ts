@@ -17,9 +17,12 @@ export const ruPlural = (n: number, one: string, few: string, many: string) =>
   n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many;
 
 export function pickKey<T>(ctx: GenCtx, items: T[], key: (t: T) => string): T {
+  // with only 2–3 answers, strong weighting would make one answer win most of the time (guessable):
+  // flatten it so the right answers stay close to balanced
+  const ex = items.length === 2 ? 0.25 : items.length === 3 ? 0.4 : 1;
   return weightedPick(ctx.rng, items, (t) => {
     const k = key(t);
-    return ctx.weight(k) * (k === ctx.prevKey && items.length > 1 ? 0.25 : 1);
+    return Math.pow(ctx.weight(k), ex) * (k === ctx.prevKey && items.length > 1 ? 0.25 : 1);
   });
 }
 

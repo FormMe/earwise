@@ -160,7 +160,7 @@ export function PracticeScreen() {
         return (
           <>
             <Chips label={t('options')} value={cfg.set} onChange={(s) => set({ ...cfg, set: s })} items={CHORDS.map((c) => ({ v: c.id, l: lang === 'ru' ? c.ru : c.en }))} />
-            <Seg value={!!cfg.inversions} onChange={(v) => set({ ...cfg, inversions: v })} items={[{ v: false, l: '—' }, { v: true, l: t('withInversions') }]} />
+            <Seg value={!!cfg.inversions} onChange={(v) => set({ ...cfg, inversions: v })} items={[{ v: false, l: t('rootOnly') }, { v: true, l: t('withInversions') }]} />
           </>
         );
       case 'inversion':
@@ -276,7 +276,7 @@ export function PracticeScreen() {
                 { v: 'jazz', l: ru_(lang, 'Джаз', 'Jazz') },
               ]}
             />
-            <Seg value={!!cfg.inversions} onChange={(inversions) => set({ ...cfg, inversions })} items={[{ v: false, l: '—' }, { v: true, l: t('withInversions') }]} />
+            <Seg value={!!cfg.inversions} onChange={(inversions) => set({ ...cfg, inversions })} items={[{ v: false, l: t('rootOnly') }, { v: true, l: t('withInversions') }]} />
           </>
         );
       case 'bass':
@@ -284,7 +284,7 @@ export function PracticeScreen() {
           <>
             <Chips label={t('options')} value={cfg.set} onChange={(s) => set({ ...cfg, set: s.includes('I') ? s : ['I', ...s] })} items={['I', 'ii', 'iii', 'IV', 'V', 'vi'].map((r) => ({ v: r, l: r }))} />
             <Seg label={t('length')} value={cfg.length} onChange={(length) => set({ ...cfg, length })} items={[3, 4, 5, 6].map((n) => ({ v: n, l: String(n) }))} />
-            <Seg value={!!cfg.inversions} onChange={(inversions) => set({ ...cfg, inversions })} items={[{ v: false, l: '—' }, { v: true, l: t('withInversions') }]} />
+            <Seg value={!!cfg.inversions} onChange={(inversions) => set({ ...cfg, inversions })} items={[{ v: false, l: t('rootOnly') }, { v: true, l: t('withInversions') }]} />
           </>
         );
       case 'cadence':

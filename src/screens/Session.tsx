@@ -43,6 +43,23 @@ function retimbre(q: Question, rng: Rng) {
   q.choices.forEach((c) => map(c.audio));
 }
 
+/** Split sequence slots into labelled groups (one per stage: bass / top, pitches / rhythm) and short rows. */
+function slotGroups(q: Question) {
+  const bounds = q.stages?.length ? q.stages.map((st) => st.until) : [q.answer.length];
+  const groups: { from: number; title?: string; rows: number[][] }[] = [];
+  let from = 0;
+  bounds.forEach((until, gi) => {
+    const idx = Array.from({ length: until - from }, (_, k) => from + k);
+    // rows of at most 6; rhythm groups split per bar of 4 beats
+    const per = idx.length <= 6 ? idx.length : q.stages?.[gi]?.choices.some((c) => c.glyph) ? 4 : Math.ceil(idx.length / Math.ceil(idx.length / 6));
+    const rows: number[][] = [];
+    for (let k = 0; k < idx.length; k += per) rows.push(idx.slice(k, k + per));
+    if (idx.length) groups.push({ from, title: q.stages && q.stages.length > 1 ? q.stages[gi].title : undefined, rows });
+    from = until;
+  });
+  return groups;
+}
+
 export function Session({ spec }: { spec: SessionSpec }) {
   const t = useT();
   const settings = useStore((s) => s.settings);
@@ -100,6 +117,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
   // per-session state that shapes question choice
   const seen = useRef<Record<string, number>>({});
+  const requeued = useRef<Record<string, number>>({});
   const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number; review?: boolean }[]>([]);
   const held = useRef<{ tonic: number; left: number } | null>(null);
   // placement test progress
@@ -295,7 +313,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
         // bring a miss back after a short gap — unless the lesson is about to end (it's on the due list anyway)
         (() => {
           const at = idx + 2 + Math.floor(Math.random() * 3);
-          if (spec.count == null || total + (at - idx) < spec.count) retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at, review: !!q.review });
+          const k = q.itemKeys[0];
+          requeued.current[k] = (requeued.current[k] ?? 0) + 1;
+          if (requeued.current[k] <= 1 && (spec.count == null || total + (at - idx) < spec.count)) retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at, review: !!q.review });
         })();
       if (q.input === 'sing' && ok) recordSung();
 
@@ -476,7 +496,14 @@ export function Session({ spec }: { spec: SessionSpec }) {
     const ro = new ResizeObserver(() => root.style.setProperty('--fb-h', `${el.offsetHeight}px`));
     ro.observe(el);
     root.style.setProperty('--fb-h', `${el.offsetHeight}px`);
-    requestAnimationFrame(() => root.querySelector('.slots, .choices, .keys-wrap')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    // bring the answer above the sheet (the slots of a dictation first: they hold the corrections)
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => {
+      const target = root.querySelector<HTMLElement>('.slot-groups, .choices, .keys-wrap');
+      if (!target) return;
+      target.style.scrollMarginBottom = `${el.offsetHeight + 16}px`;
+      target.scrollIntoView({ block: target.classList.contains('slot-groups') ? 'end' : 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    });
     return () => ro.disconnect();
   }, [phase]);
 
@@ -610,7 +637,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
             {settings.lang === 'ru' ? 'Раздел' : 'Unit'} {Math.min(block.current.i + 1, spec.blocks.length)} · {block.current.n + (phase === 'answer' ? 1 : 0)}/{BLOCK}
           </div>
         )}
-        {spec.level != null && spec.level > 1 && <div className="pill crown">👑 {spec.level}</div>}
+        {spec.level != null && spec.level > 1 && <div className="pill crown" title={settings.lang === 'ru' ? `Уровень мастерства ${spec.level}: быстрее, меньше прослушиваний` : `Crown level ${spec.level}: faster, fewer replays`}>👑 {spec.level}</div>}
         <button className="icon-btn help-btn" onClick={() => setShowHelp(true)} aria-label={t('helpTitle')}>
           ?
         </button>
@@ -679,19 +706,28 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
         {q.input === 'sequence' && (
           <>
-            <div className="slots">
-              {q.answer.map((a, i) => {
-                const v = picked[i];
-                const label = showLabel(v);
-                const st = phase === 'feedback' && i >= given ? (v === a ? 'ok' : 'bad') : i < given ? 'given' : '';
-                const brk = q.stages?.some((sg) => sg.until === i && i > 0);
-                return (
-                  <div key={i} className={`slot ${st} ${brk ? 'brk' : ''} ${i === picked.length && phase === 'answer' ? 'cur' : ''}`}>
-                    <span>{label}</span>
-                    {phase === 'feedback' && v !== a && i >= given && <small>{showLabel(a)}</small>}
-                  </div>
-                );
-              })}
+            <div className="slot-groups">
+              {slotGroups(q).map((g) => (
+                <div key={g.from} className="slot-group">
+                  {g.title && <div className="slot-group-title">{g.title}</div>}
+                  {g.rows.map((row) => (
+                    <div key={row[0]} className="slots">
+                      {row.map((i) => {
+                        const a = q.answer[i];
+                        const v = picked[i];
+                        const label = showLabel(v);
+                        const st = phase === 'feedback' && i >= given ? (v === a ? 'ok' : 'bad') : i < given ? 'given' : '';
+                        return (
+                          <div key={i} className={`slot ${st} ${i === picked.length && phase === 'answer' ? 'cur' : ''}`}>
+                            <span>{label}</span>
+                            {phase === 'feedback' && v !== a && i >= given && <small>{showLabel(a)}</small>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
             {stage && <div className="stage-title">{stage.title}</div>}
             <div className={`choices seq n${palette.length}`}>
@@ -730,7 +766,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         )}
 
         {q.input === 'sing' && q.sing && (
-          <SingInput key={idx} targets={q.sing.targets} sequential={q.sing.sequential} targetLabel={q.sing.target} busy={playing} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
+          <SingInput key={idx} targets={q.sing.targets} sequential={q.sing.sequential} targetLabel={q.sing.target} busy={playing} done={phase !== 'answer'} onResult={(ok, skipped) => (skipped ? judge(['?'], false, true) : judge([ok ? 'ok' : 'no'], ok))} />
         )}
 
         {q.input === 'pulse' && q.pulse && (
@@ -820,10 +856,10 @@ export function Session({ spec }: { spec: SessionSpec }) {
       {phase === 'feedback' && (
         <div className={`feedback ${isCorrect ? 'ok' : picked[0] === '?' ? 'dk' : 'bad'}`}>
           <div className="feedback-inner" ref={fbRef}>
-            <div className="fb-title">{isCorrect ? `✓ ${t('correct')}` : picked[0] === '?' ? `🤷 ${t('dkTitle')}` : `✗ ${t('wrong')}`}</div>
+            <div className="fb-title">{isCorrect ? `✓ ${t('correct')}` : picked[0] === '?' ? `🤷 ${q.input === 'sing' ? t('skipped') : t('dkTitle')}` : `✗ ${t('wrong')}`}</div>
             {!isCorrect && q.answerLabel && (
               <div className="fb-answer">
-                {t('answerWas')} <b>{q.answerLabel}</b>
+                {q.input === 'pulse' ? t('hintLabel') : t('answerWas')} <b>{q.answerLabel}</b>
               </div>
             )}
             {isCorrect && q.answerLabel && q.input !== 'choice' && !q.choices.some((c) => c.glyph) && <div className="fb-answer">{q.answerLabel}</div>}

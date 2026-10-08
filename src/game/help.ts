@@ -106,5 +106,7 @@ export const GLOSSARY: { ru: [string, string]; en: [string, string] }[] = [
   { ru: ['Обращение', 'Аккорд, у которого внизу (в басу) не главная нота, а другая.'], en: ['Inversion', 'A chord with a note other than its root in the bass.'] },
   { ru: ['Бас', 'Самый низкий голос — фундамент гармонии.'], en: ['Bass', 'The lowest voice — the foundation of the harmony.'] },
   { ru: ['Октава', 'Та же нота выше или ниже. «Ля3» — ля третьей октавы (цифра — номер октавы).'], en: ['Octave', 'The same note higher or lower; the number in “A3” is the octave.'] },
+  { ru: ['♯ и ♭', 'Диез (♯) — нота на полутон выше, бемоль (♭) — на полутон ниже. До♯ — чёрная клавиша справа от до.'], en: ['♯ and ♭', 'Sharp raises a note by a semitone, flat lowers it.'] },
+  { ru: ['Точка над цифрой (1̇)', 'Та же ступень октавой выше: 1̇ — верхнее «до», дом наверху гаммы.'], en: ['Dot over a number (1̇)', 'The same degree an octave higher.'] },
   { ru: ['Лад', 'Порядок шагов в гамме, который даёт музыке окраску (мажор, минор, дорийский…).'], en: ['Mode', 'The step pattern of a scale that gives music its colour.'] },
 ];

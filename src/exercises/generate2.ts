@@ -5,7 +5,7 @@ import { intervalBySemis } from '../theory/intervals';
 import { generateMelody } from '../theory/melody';
 import { keyFlats, pcName } from '../theory/notes';
 import { pick, randInt, shuffle } from '../theory/random';
-import { cellsForLevel, cellsToDurations, cellById, generateBeatRhythm } from '../theory/rhythmCells';
+import { cellsForLevel, cellsToDurations, generateBeatRhythm } from '../theory/rhythmCells';
 import { degreeById, degreeBySemis } from '../theory/scales';
 import { accompany, cadenceEvents, degreeLabel, melSemis, pickKey, ruPlural, tonicFor, tr } from './generate';
 import type { Choice, ExerciseConfig, GenCtx, ModTarget, Question } from './types';
@@ -247,7 +247,8 @@ export function genFullDictation(cfg: Extract<ExerciseConfig, { kind: 'fullDicta
     choices: [...pitchChoices, ...cellChoices],
     answer: [...pitchIds, ...cells],
     itemKeys: [...pitchIds.map((x) => `mel:${x.replace(',', '')}`), ...cells.map((c) => `rdict:${c}`)],
-    answerLabel: pitchIds.map((x) => degreeLabel(ctx, x).label).join(' ') + ' · ' + cells.map((c) => cellById(c)[ctx.lang === 'ru' ? 'ru' : 'en']).join(', '),
+    // the rhythm is shown as glyphs in the feedback sheet
+    answerLabel: pitchIds.map((x) => degreeLabel(ctx, x).label).join(' '),
     renderSequence: (ids) => {
       const p = ids.slice(0, n).map(melSemis);
       const r = ids.slice(n);

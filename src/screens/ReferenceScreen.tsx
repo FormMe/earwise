@@ -67,7 +67,7 @@ export function ReferenceScreen() {
             <div className="ref-main">
               <div className="ref-title">
                 <span className="badge">{lang === 'ru' ? i.short : i.id}</span> {lang === 'ru' ? i.ru : i.en}
-                <span className="muted small nowrap"> · {i.semis} {lang === 'ru' ? 'полутон.' : 'st'}</span>
+                <span className="muted small nowrap"> · {i.semis} {lang === 'ru' ? ruSemis(i.semis) : 'st'}</span>
               </div>
               {i.up && (
                 <div className="small">
@@ -82,13 +82,13 @@ export function ReferenceScreen() {
             </div>
             <div className="ref-btns">
               <button className="chip" aria-label={lang === 'ru' ? 'вверх' : 'up'} title={lang === 'ru' ? 'вверх' : 'up'} onClick={() => play(intervalEvents(root, i.semis, 'up', tempo))}>
-                ↑
+                ↑ {lang === 'ru' ? 'вверх' : 'up'}
               </button>
               <button className="chip" aria-label={lang === 'ru' ? 'вниз' : 'down'} title={lang === 'ru' ? 'вниз' : 'down'} onClick={() => play(intervalEvents(root + 12, i.semis, 'down', tempo))}>
-                ↓
+                ↓ {lang === 'ru' ? 'вниз' : 'down'}
               </button>
               <button className="chip" aria-label={lang === 'ru' ? 'вместе' : 'together'} title={lang === 'ru' ? 'вместе' : 'together'} onClick={() => play(intervalEvents(root, i.semis, 'harm', tempo))}>
-                ⇅
+                ⇅ {lang === 'ru' ? 'вместе' : 'together'}
               </button>
             </div>
           </div>
@@ -147,4 +147,13 @@ export function ReferenceScreen() {
       )}
     </div>
   );
+}
+
+/** 1 полутон, 2 полутона, 5 полутонов */
+function ruSemis(n: number) {
+  const d = n % 10;
+  const dd = n % 100;
+  if (d === 1 && dd !== 11) return 'полутон';
+  if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return 'полутона';
+  return 'полутонов';
 }

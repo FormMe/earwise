@@ -52,7 +52,7 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
       {passed && <Confetti />}
       <div className="results-head">
         <div className="results-emoji">{passed ? (acc === 100 ? '🏆' : '🎉') : '💪'}</div>
-        <h1>{placed != null ? spec.title : arcade ? spec.title : isLesson ? (passed ? t('lessonComplete') : t('tryAgain')) : t('sessionComplete')}</h1>
+        <h1>{placed != null ? spec.title : arcade ? spec.title : isLesson ? (passed ? t('lessonComplete') : acc < 60 ? t('tryAgainHard') : t('tryAgain')) : t('sessionComplete')}</h1>
         {isLesson && !passed && spec.pass && (
           <div className="level-done fail">
             {t('needPct')} {Math.round(spec.pass * 100)}% — {t('youGot')} {acc}%
@@ -91,7 +91,7 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
           <div className="sc-label">{t('accuracy')}</div>
           <div className="sc-value">🎯 {acc}%</div>
         </div>
-        <div className="stat-card combo">
+        <div className="stat-card streak-card">
           <div className="sc-label">{t('bestCombo')}</div>
           <div className="sc-value">🔥 {maxCombo}</div>
         </div>

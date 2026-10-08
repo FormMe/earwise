@@ -270,7 +270,7 @@ export const useStore = create<State>()(
         set(next);
 
         // achievements
-        const ctx: AchievementCtx = { ...get(), lastSession: r };
+        const ctx: AchievementCtx = { ...get(), lastSession: r, passedNow: stars > 0 };
         const achievements = { ...get().achievements };
         const newAchievements: string[] = [];
         for (const a of ACHIEVEMENTS) {

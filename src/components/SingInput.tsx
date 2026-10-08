@@ -40,7 +40,7 @@ interface Props {
   targetLabel: string;
   busy: boolean;
   done: boolean;
-  onResult: (ok: boolean) => void;
+  onResult: (ok: boolean, skipped?: boolean) => void;
 }
 
 const HOLD_MS = 700;
@@ -68,10 +68,10 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
     setPos(0);
   }, [targets]);
 
-  const finish = (ok: boolean) => {
+  const finish = (ok: boolean, skipped = false) => {
     if (fired.current) return;
     fired.current = true;
-    onResult(ok);
+    onResult(ok, skipped);
   };
 
   useEffect(() => {
@@ -158,8 +158,8 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
         <button className="btn primary big" onClick={start}>
           {t('micStart')}
         </button>
-        <button className="btn ghost small" onClick={() => finish(false)}>
-          {t('singSkip')}
+        <button className="btn ghost small" onClick={() => finish(false, true)}>
+          {t('skip')}
         </button>
       </div>
     );
@@ -167,7 +167,7 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
     return (
       <div className="sing">
         <p className="muted">{t('micDenied')}</p>
-        <button className="btn ghost" onClick={() => finish(false)}>
+        <button className="btn ghost" onClick={() => finish(false, true)}>
           {t('singSkip')}
         </button>
       </div>
@@ -202,7 +202,7 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
         <div style={{ width: `${hold * 100}%` }} />
       </div>
       {!done && (
-        <button className="btn ghost small" onClick={() => finish(false)}>
+        <button className="btn ghost small" onClick={() => finish(false, true)}>
           {t('singSkip')}
         </button>
       )}

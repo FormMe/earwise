@@ -48,7 +48,8 @@ export function MasteryMap() {
       title: ru ? 'Аккорды' : 'Chords',
       cells: CHORDS.map((c) => ({
         key: `chord:${c.id}`,
-        label: 'C' + c.symbol,
+        // names without a root letter, so they read the same with do-re-mi and letter naming
+        label: c.symbol || 'maj',
         cfg: { kind: 'chord', set: c.intervals.length > 3 ? CHORDS.filter((x) => x.intervals.length > 3).map((x) => x.id) : CHORDS.filter((x) => x.intervals.length === 3).map((x) => x.id), open: true } as ExerciseConfig,
       })),
     },
