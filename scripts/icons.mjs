@@ -16,7 +16,7 @@ for (const [size, name, pad] of [[192, 'icon-192.png', 0], [512, 'icon-512.png',
 {
   const size = 512;
   await page.setViewportSize({ width: size, height: size });
-  const bg = svg.replace('rx="30"', 'rx="0"').replace(/<path[\s\S]*$/, '</svg>');
+  const bg = svg.replace('rx="30"', 'rx="0"').replace(/(<rect[^>]*\/>)[\s\S]*$/, '$1</svg>');
   const glyph = svg.replace(/<rect[^>]*\/>/, '');
   await page.setContent(`<html><body style="margin:0;position:relative;width:${size}px;height:${size}px">
     <div style="position:absolute;inset:0">${bg.replace('<svg ', `<svg width="${size}" height="${size}" `)}</div>
