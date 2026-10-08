@@ -212,6 +212,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const showQuestion = useCallback(
     (question: Question) => {
       shownAt.current = performance.now();
+      // visual cue for the short window in which taps are ignored
+      rootRef.current?.classList.add('settling');
+      window.setTimeout(() => rootRef.current?.classList.remove('settling'), 350);
       playsLeftRef.current = spec.replays ?? null;
       setPlaysLeft(playsLeftRef.current);
       phaseRef.current = 'answer';

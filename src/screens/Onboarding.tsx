@@ -13,6 +13,7 @@ export function Onboarding() {
   const lang = useStore((s) => s.settings.lang);
   const voice = useStore((s) => s.settings.voice);
   const [goal, setGoal] = useState(50);
+  const [feat, setFeat] = useState<number | null>(null);
   const startSession = useNav((s) => s.startSession);
 
   const goals = [
@@ -50,14 +51,13 @@ export function Onboarding() {
         <p>{t('welcomeSub')}</p>
       </div>
       <div className="ob-features">
-        <span>📐 {lang === 'ru' ? 'Интервалы' : 'Intervals'}</span>
-        <span>🎹 {lang === 'ru' ? 'Аккорды' : 'Chords'}</span>
-        <span>🎯 {lang === 'ru' ? 'Ступени' : 'Degrees'}</span>
-        <span>✍️ {lang === 'ru' ? 'Диктант' : 'Dictation'}</span>
-        <span>🎸 {lang === 'ru' ? 'Гармония' : 'Harmony'}</span>
-        <span>🥁 {lang === 'ru' ? 'Ритм' : 'Rhythm'}</span>
-        <span>🎤 {lang === 'ru' ? 'Пение' : 'Singing'}</span>
+        {FEATURES.map((f, i) => (
+          <button key={f.icon} className={`ob-chip ${feat === i ? 'on' : ''}`} onClick={() => setFeat(feat === i ? null : i)}>
+            {f.icon} {lang === 'ru' ? f.ru[0] : f.en[0]}
+          </button>
+        ))}
       </div>
+      {feat != null && <p className="ob-feat-desc">{lang === 'ru' ? FEATURES[feat].ru[1] : FEATURES[feat].en[1]}</p>}
       <h3>{t('welcomeGoal')}</h3>
       <div className="ob-goals">
         {goals.map((g) => (
@@ -94,3 +94,14 @@ export function Onboarding() {
     </div>
   );
 }
+
+/** what each part of the course trains, shown when a chip is tapped */
+const FEATURES = [
+  { icon: '📐', ru: ['Интервалы', 'Расстояние между двумя нотами — основа слуха.'], en: ['Intervals', 'The distance between two notes — the basis of it all.'] },
+  { icon: '🎹', ru: ['Аккорды', 'Слышать окраску аккорда: мажор, минор и другие.'], en: ['Chords', 'Hear a chord’s colour: major, minor and more.'] },
+  { icon: '🎯', ru: ['Ступени', 'Узнавать ноту по её месту в тональности — как музыканты слышат мелодию.'], en: ['Degrees', 'Know a note by its place in the key — how musicians hear melody.'] },
+  { icon: '✍️', ru: ['Диктант', 'Записывать услышанную мелодию и ритм.'], en: ['Dictation', 'Write down a melody and rhythm you hear.'] },
+  { icon: '🎸', ru: ['Гармония', 'Узнавать аккорды в песнях: I, IV, V, vi…'], en: ['Harmony', 'Recognise the chords in songs: I, IV, V, vi…'] },
+  { icon: '🥁', ru: ['Ритм', 'Чувствовать долю, повторять и записывать ритмы.'], en: ['Rhythm', 'Feel the beat, tap back and write rhythms.'] },
+  { icon: '🎤', ru: ['Пение', 'Петь ноты и интервалы в микрофон — слух и голос вместе.'], en: ['Singing', 'Sing notes and intervals into the mic.'] },
+];

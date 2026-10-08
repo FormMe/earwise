@@ -3,7 +3,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { audio } from '../audio/engine';
 import type { Dir, ExerciseConfig, ExerciseKind } from '../exercises/types';
-import { KIND_META } from '../game/curriculum';
+import { KIND_META, UNITS } from '../game/curriculum';
+
+/** the first unit (index) that teaches each exercise kind */
+const firstUnit: Partial<Record<ExerciseKind, number>> = {};
+UNITS.forEach((u, i) => !u.optional && u.lessons.forEach((l) => (firstUnit[l.cfg.kind] ??= i)));
 import { useNav } from '../game/nav';
 import { practiceSpec } from '../game/sessions';
 import { useStore } from '../game/store';
@@ -99,6 +103,10 @@ export function PracticeScreen() {
   const t = useT();
   const lang = useLang();
   const naming = useStore((s) => s.settings.naming);
+  const lessons = useStore((s) => s.lessons);
+  // a kind is "reached" once its unit (or anything after it) has been started, or the unit before it is done
+  const reached = (i: number) =>
+    i === 0 || UNITS.slice(i).some((u) => u.lessons.some((l) => (lessons[l.id]?.stars ?? 0) > 0)) || UNITS[i - 1].lessons.every((l) => (lessons[l.id]?.stars ?? 0) > 0);
   const { cfgs, kind, set, setKind } = usePractice();
   const startSession = useNav((s) => s.startSession);
   const open = useNav((s) => s.open);
@@ -407,6 +415,9 @@ export function PracticeScreen() {
           >
             <span className="kind-icon">{KIND_META[k].icon}</span>
             <span className="kind-name">{lang === 'ru' ? KIND_META[k].ru : KIND_META[k].en}</span>
+            {firstUnit[k] != null && !reached(firstUnit[k]!) && (
+              <span className="kind-later">{lang === 'ru' ? `раздел ${firstUnit[k]! + 1}` : `unit ${firstUnit[k]! + 1}`}</span>
+            )}
           </button>
         ))}
       </div>

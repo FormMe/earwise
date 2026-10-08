@@ -1846,7 +1846,9 @@ input[type='range'] {
   gap: 8px;
   justify-content: center;
 }
-.ob-features span {
+.ob-features .ob-chip {
+  color: inherit;
+  border: 2px solid transparent;
   background: var(--card);
   border-radius: 999px;
   padding: 6px 12px;
@@ -2496,4 +2498,25 @@ h2 {
     font-size: 10px;
     letter-spacing: -0.2px;
   }
+}
+
+.ob-features .ob-chip.on {
+  border-color: var(--accent);
+}
+.ob-feat-desc {
+  text-align: center;
+  font-weight: 600;
+  margin: 4px 8px 0;
+  min-height: 2.6em;
+}
+.kind-later {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+}
+/* briefly after a new question appears taps are ignored (anti double-tap): show it */
+.session.settling .choices .choice,
+.session.settling .keys-wrap {
+  opacity: 0.7;
+  transition: opacity 0.15s;
 }
