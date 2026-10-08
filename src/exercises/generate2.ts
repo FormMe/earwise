@@ -3,7 +3,7 @@ import type { NoteEvent } from '../audio/engine';
 import { romanById, voiceChord, voiceProgression, generateProgression } from '../theory/harmony';
 import { intervalBySemis } from '../theory/intervals';
 import { generateMelody } from '../theory/melody';
-import { FLAT_KEYS, pc, pcName } from '../theory/notes';
+import { keyFlats, pcName } from '../theory/notes';
 import { pick, randInt, shuffle } from '../theory/random';
 import { cellsForLevel, cellsToDurations, cellById, generateBeatRhythm } from '../theory/rhythmCells';
 import { degreeById, degreeBySemis } from '../theory/scales';
@@ -36,7 +36,7 @@ export function genFunction(cfg: Extract<ExerciseConfig, { kind: 'function' }>, 
     answer: [f],
     itemKeys: [`fn:${r}`],
     answerLabel: `${names[f]} — ${r}`,
-    afterAnswer: voiceProgression(tonic, [r, f === 'D' ? 'I' : f === 'S' ? 'V' : 'I']).map((v, i) => ({ t: i * 0.7, d: 0.68, midi: v, vel: 0.5 })),
+    afterAnswer: voiceProgression(tonic, r === 'I' ? ['I', 'V', 'I'] : [r, f === 'S' ? 'V' : 'I']).map((v, i) => ({ t: i * 0.7, d: 0.68, midi: v, vel: 0.5 })),
     explain: tr(ctx, 'T — I, vi (iii); S — IV, ii; D — V, V7, vii°', 'T: I, vi (iii); S: IV, ii; D: V, V7, vii°'),
   };
 }
@@ -124,7 +124,8 @@ export function genModulation(cfg: Extract<ExerciseConfig, { kind: 'modulation' 
   const d = 0.75 * ctx.tempo;
   const first = voiceProgression(tonic, ['I', pick(ctx.rng, ['IV', 'vi']), 'V', 'I']);
   // pivot into the new key with ii/iv – V7 – I/i and confirm it with a second cadence
-  const second = voiceProgression(nt, m.minor ? ['iv', 'V7', 'i', 'iv', 'V7', 'i'] : ['ii', 'V7', 'I', 'IV', 'V7', 'I']);
+  // continue the voice leading from the first half so the pivot doesn't jump
+  const second = voiceProgression(nt, m.minor ? ['iv', 'V7', 'i', 'iv', 'V7', 'i'] : ['ii', 'V7', 'I', 'IV', 'V7', 'I'], undefined, { start: first[first.length - 1], endTopPc: nt });
   const all = [...first, ...second];
   const mk = (chords: number[][]) => chords.map((v, i) => ({ t: i * d, d: i === chords.length - 1 ? d * 2 : d * 0.97, midi: v, vel: 0.52 }));
   return {
@@ -139,7 +140,7 @@ export function genModulation(cfg: Extract<ExerciseConfig, { kind: 'modulation' 
     choices: cfg.set.map((x) => ({ id: x, label: ctx.lang === 'ru' ? MOD[x].ru : MOD[x].en, sub: MOD[x].sub })),
     answer: [target],
     itemKeys: [`mod:${target}`],
-    answerLabel: `${ctx.lang === 'ru' ? m.ru : m.en} (${pcName(tonic, ctx.naming, ctx.lang, FLAT_KEYS.has(pc(tonic)))} → ${pcName(nt, ctx.naming, ctx.lang, FLAT_KEYS.has(pc(nt)))}${m.minor ? 'm' : ''})`,
+    answerLabel: `${ctx.lang === 'ru' ? m.ru : m.en} (${pcName(tonic, ctx.naming, ctx.lang, keyFlats(tonic))} → ${pcName(nt, ctx.naming, ctx.lang, keyFlats(nt, m.minor))}${m.minor ? 'm' : ''})`,
     afterAnswer: [
       { t: 0, d: 1, midi: first[0], vel: 0.5 },
       { t: 1.2, d: 1.4, midi: second[second.length - 1], vel: 0.5 },

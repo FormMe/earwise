@@ -346,7 +346,7 @@ export const UNITS: Unit[] = [
       }),
       L('k2', '+ m7♭5 и °7', '+ m7♭5 & °7', { kind: 'chord', set: ['maj7', 'dom7', 'min7', 'm7b5', 'dim7'], open: true }),
       L('k3', 'Пара: 7 и maj7', 'Pair: 7 vs maj7', { kind: 'chord', set: ['dom7', 'maj7'], open: true }),
-      L('k4', 'Все септ- и секстаккорды', 'All 7ths & 6ths', { kind: 'chord', set: ['maj7', 'dom7', 'min7', 'm7b5', 'dim7', 'mMaj7', 'maj6'], open: true }),
+      L('k4', 'Септаккорды и аккорд с секстой', 'All 7ths & 6ths', { kind: 'chord', set: ['maj7', 'dom7', 'min7', 'm7b5', 'dim7', 'mMaj7', 'maj6'], open: true }),
       L('k5', 'add9 и 9', 'add9 and 9', { kind: 'chord', set: ['maj', 'add9', 'dom7', 'dom9'] }, {
         intro: { ru: 'add9 — мажор с добавленной ноной (ре над до), звучит «сверкающе». 9 — доминантсептаккорд с ноной, фанковый.', en: 'add9 is major plus a 9th; 9 is a dominant 7th with a 9th.' },
       }),
@@ -354,7 +354,7 @@ export const UNITS: Unit[] = [
         intro: { ru: 'В септаккорде 4 звука, значит обращений три: в басу терция, квинта или септима.', en: 'A seventh chord has 3 inversions: 3rd, 5th or 7th in the bass.' },
       }),
       L('k7', 'ii – V – I', 'ii – V – I', { kind: 'progression', set: ['Imaj7', 'ii7', 'V7', 'vi7'], length: 4, style: 'jazz' }, {
-        intro: { ru: 'ii7–V7–Imaj7 — главная формула джаза. Слушай, как бас ходит по квартам вверх.', en: 'ii7–V7–Imaj7 is the core of jazz; the bass moves up in fourths.' },
+        intro: { ru: 'ii7–V7–Imaj7 — главная формула джаза. Бас ходит по квинтовому кругу: кварта вверх или квинта вниз.', en: 'ii7–V7–Imaj7 is the core of jazz; the bass moves up in fourths.' },
       }),
       L('k8', 'Джаз в миноре', 'Minor jazz', { kind: 'progression', set: ['i', 'iiø7', 'V7', 'VI'], length: 4, minor: true, style: 'jazz' }),
       CHECK('k9'),
@@ -388,7 +388,7 @@ export const UNITS: Unit[] = [
         intro: { ru: 'Гармонический минор — повышенная 7 ступень (восточный колорит). Мелодический — повышены 6 и 7.', en: 'Harmonic minor raises 7; melodic raises 6 and 7.' },
       }),
       L('m2', 'Дорийский или минор', 'Dorian or minor', { kind: 'scale', set: ['minor', 'dorian'], vamp: true }, {
-        intro: { ru: 'Дорийский — минор с «светлой» 6 ступенью. Слушай, где мелодия касается 6.', en: 'Dorian is minor with a bright 6th.' },
+        intro: { ru: 'Дорийский — минор со «светлой» 6 ступенью. Слушай, где мелодия касается 6.', en: 'Dorian is minor with a bright 6th.' },
       }),
       L('m3', 'Миксолидийский или мажор', 'Mixolydian or major', { kind: 'scale', set: ['major', 'mixolydian'], vamp: true }, {
         intro: { ru: 'Миксолидийский — мажор с пониженной 7 ступенью (♭7): «рок-мажор».', en: 'Mixolydian is major with ♭7.' },

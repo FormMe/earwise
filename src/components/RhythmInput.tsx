@@ -83,7 +83,7 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     // compensate a systematic latency offset (median error of rough matches)
     const rough = expected.map((e) => {
       const near = raw.reduce((b, x) => (Math.abs(x - e) < Math.abs(b - e) ? x : b), Infinity);
-      return Math.abs(near - e) < 0.2 ? near - e : null;
+      return Math.abs(near - e) < 0.35 ? near - e : null;
     });
     const errs = rough.filter((x): x is number => x != null).sort((a, b) => a - b);
     const offset = errs.length >= 2 ? errs[Math.floor(errs.length / 2)] : 0;
@@ -106,9 +106,9 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     timers.current.push(window.setTimeout(evaluate, startPerf.current - performance.now() + beats * beat * 1000 + 350));
   };
 
-  const tap = useCallback(() => {
+  const tap = useCallback((ts: number = performance.now()) => {
     if (phase !== 'tapping' && phase !== 'countin') return;
-    const tt = (performance.now() - startPerf.current) / 1000;
+    const tt = (ts - startPerf.current) / 1000;
     if (tt < -0.25) return;
     tapsRef.current.push(tt);
     setTaps([...tapsRef.current]);
@@ -120,7 +120,7 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
-        tap();
+        tap(e.timeStamp);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -159,7 +159,7 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
         </div>
       )}
       {(phase === 'countin' || phase === 'tapping') && (
-        <button className={`tap-pad ${flash ? 'flash' : ''} ${phase === 'tapping' ? 'live' : ''}`} onPointerDown={(e) => (e.preventDefault(), tap())}>
+        <button className={`tap-pad ${flash ? 'flash' : ''} ${phase === 'tapping' ? 'live' : ''}`} onPointerDown={(e) => (e.preventDefault(), tap(e.timeStamp))}>
           {phase === 'countin' ? (beat >= 0 && beat < 4 ? 4 - beat : '…') : t('rhythmTap')}
         </button>
       )}

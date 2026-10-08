@@ -36,7 +36,7 @@ function retimbre(q: Question, rng: Rng) {
   const lowest = Math.min(...q.stimulus.flatMap((e) => (e.drum ? [] : Array.isArray(e.midi) ? e.midi : [e.midi])));
   const opts: Instrument[] = ['piano', 'epiano', 'guitar', 'eguitar'];
   // the recorder only sounds natural in its own (high) register
-  if (lowest >= 60) opts.push('recorder');
+  if (lowest >= 65 && !q.stimulus.some((e) => Array.isArray(e.midi) && e.midi.length > 1)) opts.push('recorder');
   const inst = opts[Math.floor(rng() * opts.length)];
   const map = (ev?: NoteEvent[]) => ev?.forEach((e) => (e.inst ??= inst));
   map(q.stimulus);

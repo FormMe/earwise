@@ -19,6 +19,17 @@ type Voice = { src: AudioBufferSourceNode; gain: GainNode };
 
 const RELEASE: Record<Instrument, number> = { piano: 0.25, epiano: 0.3, guitar: 0.2, eguitar: 0.25, recorder: 0.07, organ: 0.08 };
 
+/** Drop the silent tail of a rendered note (below -60 dB) to save memory. */
+function trimTail(data: Float32Array): Float32Array {
+  let end = data.length;
+  while (end > 1000 && Math.abs(data[end - 1]) < 0.001) end--;
+  if (end >= data.length - 1000) return data;
+  const out = data.slice(0, end + 200);
+  const fade = Math.min(200, out.length);
+  for (let i = 0; i < fade; i++) out[out.length - 1 - i] *= i / fade;
+  return out;
+}
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
@@ -42,10 +53,18 @@ class AudioEngine {
       this.ctx = new AC({ latencyHint: 'interactive' });
       const ctx = this.ctx;
       const comp = ctx.createDynamicsCompressor();
-      comp.threshold.value = -14;
-      comp.ratio.value = 4;
-      comp.attack.value = 0.005;
+      comp.threshold.value = -18;
+      comp.knee.value = 6;
+      comp.ratio.value = 6;
+      comp.attack.value = 0.003;
       comp.release.value = 0.2;
+      // brick-wall limiter as the very last stage: chords + bass + drums + reverb never clip
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -2;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.001;
+      limiter.release.value = 0.1;
       this.master = ctx.createGain();
       this.master.gain.value = this.volume;
       this.dry = ctx.createGain();
@@ -55,7 +74,7 @@ class AudioEngine {
       conv.buffer = this.makeImpulse(ctx, 1.6);
       this.dry.connect(this.master);
       this.wet.connect(conv).connect(this.master);
-      this.master.connect(comp).connect(ctx.destination);
+      this.master.connect(comp).connect(limiter).connect(ctx.destination);
       this.clicks = [false, true].map((acc) => this.toBuffer(renderClick(ctx.sampleRate, acc)));
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
@@ -108,10 +127,16 @@ class AudioEngine {
   private buffer(midi: number, inst = this.instrument) {
     const key = `${inst}:${midi}`;
     let b = this.cache.get(key);
-    if (!b) {
-      b = this.toBuffer(renderNote(inst, midi, this.ensure().sampleRate));
+    if (b) {
+      // LRU: re-insert so the most recently used notes survive eviction
+      this.cache.delete(key);
       this.cache.set(key, b);
+      return b;
     }
+    b = this.toBuffer(trimTail(renderNote(inst, midi, this.ensure().sampleRate)));
+    this.cache.set(key, b);
+    // keep memory bounded on phones (≈150 notes)
+    while (this.cache.size > 150) this.cache.delete(this.cache.keys().next().value!);
     return b;
   }
 
@@ -203,6 +228,16 @@ class AudioEngine {
   play(events: NoteEvent[], opts: { stopPrevious?: boolean } = {}): Promise<void> {
     if (opts.stopPrevious !== false) this.stopAll();
     const ctx = this.ensure();
+    // the recorder only plays single notes in its own register; anything else falls back to piano
+    const pitched = events.filter((e) => !e.drum).flatMap((e) => (Array.isArray(e.midi) ? e.midi : [e.midi]));
+    const lowest = pitched.length ? Math.min(...pitched) : 127;
+    const instFor = (e: NoteEvent, n: number) => e.inst ?? (this.instrument === 'recorder' && (n > 1 || lowest < 60) ? 'piano' : this.instrument);
+    // render every note first, then schedule — otherwise slow first renders smear chords and rhythms
+    for (const e of events) {
+      if (e.drum) continue;
+      const notes = Array.isArray(e.midi) ? e.midi : [e.midi];
+      for (const m of notes) this.buffer(m, instFor(e, notes.length));
+    }
     const t0 = ctx.currentTime + 0.06;
     let end = 0;
     for (const e of events) {
@@ -214,9 +249,8 @@ class AudioEngine {
       const notes = Array.isArray(e.midi) ? e.midi : [e.midi];
       notes.forEach((m, i) => {
         const at = t0 + e.t + (e.strum ?? 0) * i;
-        // a recorder can't play chords: chords fall back to piano
-        const inst = e.inst ?? (this.instrument === 'recorder' && notes.length > 1 ? 'piano' : this.instrument);
-        this.note(m, at, e.d, e.vel ?? (notes.length > 1 ? 0.6 : 0.8), inst);
+        // chords are scaled by 1/√n so they sit at the level of a single note
+        this.note(m, at, e.d, e.vel ?? (notes.length > 1 ? 0.8 / Math.sqrt(notes.length) : 0.8), instFor(e, notes.length));
       });
       end = Math.max(end, e.t + e.d + (e.strum ?? 0) * notes.length);
     }

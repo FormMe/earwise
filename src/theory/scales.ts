@@ -9,9 +9,9 @@ export interface ScaleDef {
 export const SCALES: ScaleDef[] = [
   { id: 'major', ru: 'Мажор (ионийский)', en: 'Major (Ionian)', steps: [0, 2, 4, 5, 7, 9, 11], hint: { ru: 'Светлый, «до-ре-ми»', en: 'Bright do-re-mi' } },
   { id: 'minor', ru: 'Натуральный минор', en: 'Natural minor', steps: [0, 2, 3, 5, 7, 8, 10], hint: { ru: 'Печальный', en: 'Sad' } },
-  { id: 'harmMinor', ru: 'Гармонический минор', en: 'Harmonic minor', steps: [0, 2, 3, 5, 7, 8, 11], hint: { ru: 'Восточный скачок м6→б7', en: 'Exotic leap at the top' } },
-  { id: 'melMinor', ru: 'Мелодический минор', en: 'Melodic minor', steps: [0, 2, 3, 5, 7, 9, 11], hint: { ru: 'Минор внизу, мажор вверху', en: 'Minor bottom, major top' } },
-  { id: 'dorian', ru: 'Дорийский', en: 'Dorian', steps: [0, 2, 3, 5, 7, 9, 10], hint: { ru: 'Минор с яркой б6', en: 'Minor with bright 6th' } },
+  { id: 'harmMinor', ru: 'Гармонический минор', en: 'Harmonic minor', steps: [0, 2, 3, 5, 7, 8, 11], hint: { ru: 'Восточная увеличенная секунда (♭6→7)', en: 'Exotic augmented 2nd (♭6→7)' } },
+  { id: 'melMinor', ru: 'Мелодический минор (джазовый)', en: 'Melodic minor', steps: [0, 2, 3, 5, 7, 9, 11], hint: { ru: 'Минор внизу, мажор вверху', en: 'Minor bottom, major top' } },
+  { id: 'dorian', ru: 'Дорийский', en: 'Dorian', steps: [0, 2, 3, 5, 7, 9, 10], hint: { ru: 'Минор с высокой 6 ступенью', en: 'Minor with a raised 6th' } },
   { id: 'phrygian', ru: 'Фригийский', en: 'Phrygian', steps: [0, 1, 3, 5, 7, 8, 10], hint: { ru: 'Испанский, м2 в начале', en: 'Spanish, flat 2' } },
   { id: 'lydian', ru: 'Лидийский', en: 'Lydian', steps: [0, 2, 4, 6, 7, 9, 11], hint: { ru: 'Сказочный, ув4', en: 'Dreamy, raised 4' } },
   { id: 'mixolydian', ru: 'Миксолидийский', en: 'Mixolydian', steps: [0, 2, 4, 5, 7, 9, 10], hint: { ru: 'Рок-мажор, м7', en: 'Rock major, flat 7' } },

@@ -37,7 +37,7 @@ export function PulseInput({ pulse, done, onResult }: Props) {
       // compensate a steady latency offset before grading
       const errs = pulse.beats
         .map((b) => raw.reduce((best, x) => (Math.abs(x - b) < Math.abs(best - b) ? x : best), Infinity) - b)
-        .filter((e) => Math.abs(e) < 0.2)
+        .filter((e) => Math.abs(e) < 0.35)
         .sort((a, b) => a - b);
       const off = errs.length > 2 ? errs[Math.floor(errs.length / 2)] : 0;
       const res = scoreTaps(pulse.beats, raw.map((x) => x - off), 0.09);
@@ -47,9 +47,9 @@ export function PulseInput({ pulse, done, onResult }: Props) {
     }, pulse.total * 1000 + 200);
   };
 
-  const tap = () => {
+  const tap = (ts: number = performance.now()) => {
     if (phase !== 'playing') return;
-    taps.current.push((performance.now() - start.current) / 1000);
+    taps.current.push((ts - start.current) / 1000);
     setFlash(true);
     setTimeout(() => setFlash(false), 80);
   };
@@ -58,7 +58,7 @@ export function PulseInput({ pulse, done, onResult }: Props) {
     const h = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
-        tap();
+        tap(e.timeStamp);
       }
     };
     window.addEventListener('keydown', h);
@@ -73,7 +73,7 @@ export function PulseInput({ pulse, done, onResult }: Props) {
         </button>
       )}
       {phase === 'playing' && (
-        <button className={`tap-pad live ${flash ? 'flash' : ''}`} onPointerDown={(e) => (e.preventDefault(), tap())}>
+        <button className={`tap-pad live ${flash ? 'flash' : ''}`} onPointerDown={(e) => (e.preventDefault(), tap(e.timeStamp))}>
           {t('rhythmTap')}
         </button>
       )}

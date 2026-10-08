@@ -17,10 +17,10 @@ export const CHORDS: ChordDef[] = [
   { id: 'maj7', ru: 'Большой мажорный септ.', en: 'Major 7th', symbol: 'maj7', intervals: [0, 4, 7, 11], hint: { ru: 'Мечтательный, джазовый', en: 'Dreamy, jazzy' } },
   { id: 'dom7', ru: 'Доминантсептаккорд', en: 'Dominant 7th', symbol: '7', intervals: [0, 4, 7, 10], hint: { ru: 'Блюзовый, тянет к тонике', en: 'Bluesy, pulls home' } },
   { id: 'min7', ru: 'Малый минорный септ.', en: 'Minor 7th', symbol: 'm7', intervals: [0, 3, 7, 10], hint: { ru: 'Мягкий, соул', en: 'Mellow, soulful' } },
-  { id: 'm7b5', ru: 'Полууменьшённый', en: 'Half-diminished', symbol: 'm7♭5', intervals: [0, 3, 6, 10], hint: { ru: 'Тёмный, неустойчивый', en: 'Dark, unstable' } },
+  { id: 'm7b5', ru: 'Малый уменьшённый (полууменьш.)', en: 'Half-diminished', symbol: 'm7♭5', intervals: [0, 3, 6, 10], hint: { ru: 'Тёмный, неустойчивый', en: 'Dark, unstable' } },
   { id: 'dim7', ru: 'Уменьшённый септ.', en: 'Diminished 7th', symbol: '°7', intervals: [0, 3, 6, 9], hint: { ru: 'Драматичный, киношный', en: 'Dramatic, cinematic' } },
-  { id: 'mMaj7', ru: 'Минор с б7', en: 'Minor-major 7th', symbol: 'm(maj7)', intervals: [0, 3, 7, 11], hint: { ru: 'Шпионский, нуарный', en: 'Spy-movie noir' } },
-  { id: 'maj6', ru: 'Мажорный секстаккорд (6)', en: 'Major 6th', symbol: '6', intervals: [0, 4, 7, 9], hint: { ru: 'Ретро, свинг', en: 'Retro, swing' } },
+  { id: 'mMaj7', ru: 'Минорный с большой септимой', en: 'Minor-major 7th', symbol: 'm(maj7)', intervals: [0, 3, 7, 11], hint: { ru: 'Шпионский, нуарный', en: 'Spy-movie noir' } },
+  { id: 'maj6', ru: 'Мажорный с секстой (6)', en: 'Major 6th', symbol: '6', intervals: [0, 4, 7, 9], hint: { ru: 'Ретро, свинг', en: 'Retro, swing' } },
   { id: 'add9', ru: 'Add9', en: 'Add9', symbol: 'add9', intervals: [0, 4, 7, 14], hint: { ru: 'Яркий, поп', en: 'Shimmering pop' } },
   { id: 'dom9', ru: 'Доминантнонаккорд', en: 'Dominant 9th', symbol: '9', intervals: [0, 4, 7, 10, 14], hint: { ru: 'Фанк', en: 'Funky' } },
 ];

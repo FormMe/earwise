@@ -76,7 +76,9 @@ describe('theory', () => {
     expect(resolution(4, false)).toEqual([4, 2, 0]);
     expect(resolution(9, false)).toEqual([9, 11, 12]);
     expect(resolution(0, false)).toEqual([0]);
-    expect(resolution(6, false)).toEqual([6, 5, 4, 2, 0]);
+    // ♯4 leans up to 5
+    expect(resolution(6, false)).toEqual([6, 7, 9, 11, 12]);
+    expect(resolution(10, false)[1]).toBe(9);
   });
 
   it('detects pitch of a sine', () => {
@@ -202,5 +204,60 @@ describe('honest answering', () => {
   it('placement only uses guess-resistant questions', () => {
     for (const b of placementSpec('ru').blocks!)
       for (const c of b.configs) expect(c.kind !== 'pitch' && (itemCount(c) >= 3 || ['melody', 'progression', 'bass', 'rhythmDictation', 'twoVoice', 'fullDictation'].includes(c.kind))).toBe(true);
+  });
+});
+
+import { renderNote } from '../audio/synth';
+
+describe('review fixes', () => {
+  it('voice leading avoids parallel fifths and octaves', () => {
+    const rng = mulberry32(11);
+    for (let k = 0; k < 40; k++) {
+      const prog = generateProgression(rng, ['I', 'ii', 'IV', 'V', 'vi'], 6);
+      const v = voiceProgression(55 + (k % 12), prog);
+      for (let c = 1; c < v.length; c++) {
+        const a = v[c - 1];
+        const b = v[c];
+        if (a.length !== b.length) continue;
+        for (let i = 0; i < a.length; i++)
+          for (let j = i + 1; j < a.length; j++) {
+            const i1 = (((a[j] - a[i]) % 12) + 12) % 12;
+            const i2 = (((b[j] - b[i]) % 12) + 12) % 12;
+            const similar = a[i] !== b[i] && Math.sign(b[i] - a[i]) === Math.sign(b[j] - a[j]);
+            // a few are unavoidable with closed voicings; allow none between bass and soprano
+            if (similar && i1 === i2 && (i1 === 7 || i1 === 0) && i === 0 && j === a.length - 1) throw new Error(`parallel in ${prog}`);
+          }
+      }
+    }
+  });
+
+  it('melodies that should end at home always do', () => {
+    const rng = mulberry32(7);
+    for (let k = 0; k < 300; k++) {
+      const m = generateMelody(rng, { pool: [-5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12], length: 6, endOnTonic: true, maxLeap: 7 });
+      expect(m[m.length - 1] % 12).toBe(0);
+    }
+  });
+
+  it('guitars are in tune', () => {
+    const sr = 48000;
+    for (const inst of ['guitar', 'eguitar'] as const)
+      for (const midi of [48, 72, 84]) {
+        const buf = renderNote(inst, midi, sr).slice(Math.floor(0.2 * sr), Math.floor(0.2 * sr) + 4096);
+        const r = detectPitch(buf.slice(0, 2048), sr, 60, 1200)!;
+        const f0 = 440 * Math.pow(2, (midi - 69) / 12);
+        expect(Math.abs(1200 * Math.log2(r.freq / f0))).toBeLessThan(8);
+      }
+  });
+
+  it('sus chords never invert into each other', () => {
+    for (let seed = 1; seed < 60; seed++) {
+      const q = generate({ kind: 'chord', set: ['sus2', 'sus4', 'maj'], inversions: true }, ctx(seed));
+      if (q.answer[0] !== 'maj') {
+        const notes = q.stimulus[0].midi as number[];
+        const iv = notes.map((n) => n - notes[0]);
+        expect(iv[1] === 2 || iv[1] === 5).toBe(true);
+      }
+    }
   });
 });

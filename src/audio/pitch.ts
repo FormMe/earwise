@@ -1,11 +1,12 @@
 import { audio } from './engine';
 
 /** YIN pitch detector. Returns null when there is no clear pitch. */
-export function detectPitch(buf: Float32Array, sr: number, minF = 70, maxF = 1100): { freq: number; clarity: number } | null {
+export function detectPitch(buf: Float32Array, sr: number, minF = 60, maxF = 1100): { freq: number; clarity: number } | null {
   let rms = 0;
   for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / buf.length);
-  if (rms < 0.01) return null;
+  // AGC is off, so quiet voices are common: a low gate
+  if (rms < 0.004) return null;
 
   const tauMin = Math.floor(sr / maxF);
   const tauMax = Math.min(Math.floor(sr / minF), Math.floor(buf.length / 2) - 1);
@@ -36,7 +37,8 @@ export function detectPitch(buf: Float32Array, sr: number, minF = 70, maxF = 110
       break;
     }
   }
-  if (tau < 0) return null;
+  // at the search edge the estimate is clamped and unreliable
+  if (tau < 0 || tau >= tauMax - 1) return null;
   // parabolic interpolation
   const x0 = tau > 1 ? cmnd[tau - 1] : cmnd[tau];
   const x2 = tau + 1 <= tauMax ? cmnd[tau + 1] : cmnd[tau];

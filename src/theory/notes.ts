@@ -25,5 +25,10 @@ export function noteName(midi: number, naming: NoteNaming, lang: 'ru' | 'en', wi
   return withOctave ? `${n}${octaveOf(midi)}` : n;
 }
 
-/** Keys that are conventionally spelled with flats. */
+/** Major keys that are conventionally spelled with flats (F, B♭, E♭, A♭, D♭). */
 export const FLAT_KEYS = new Set([5, 10, 3, 8, 1]);
+/** Minor keys spelled with flats (C, D, F, G, B♭ minor; E♭ minor as well). */
+export const MINOR_FLAT_KEYS = new Set([0, 2, 5, 7, 10, 3]);
+
+/** Should notes in this key be written with flats? */
+export const keyFlats = (tonic: number, minor = false) => (minor ? MINOR_FLAT_KEYS : FLAT_KEYS).has(pc(tonic));

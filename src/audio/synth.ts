@@ -34,19 +34,82 @@ export function renderNote(inst: Instrument, midi: number, sr: number): Float32A
   }
 }
 
-function normalize(out: Float32Array, peak = 0.55) {
+/**
+ * Loudness-match every instrument: scale so the first 0.4 s sit at about -16 dB RMS,
+ * never letting the peak exceed 0.9. Adds click-free fades at both ends.
+ */
+function normalize(out: Float32Array, sr: number, target = 0.158) {
+  const n = Math.min(out.length, Math.floor(0.4 * sr));
+  let sum = 0;
   let m = 0;
+  for (let i = 0; i < n; i++) sum += out[i] * out[i];
   for (let i = 0; i < out.length; i++) m = Math.max(m, Math.abs(out[i]));
-  if (m > 0) {
-    const k = peak / m;
+  const rms = Math.sqrt(sum / Math.max(1, n));
+  if (rms > 0 && m > 0) {
+    const k = Math.min(target / rms, 0.9 / m);
     for (let i = 0; i < out.length; i++) out[i] *= k;
   }
-  // tiny fade-out at the end to avoid clicks
-  const fade = Math.min(out.length, Math.floor(sr_fade(out.length)));
+  const fadeIn = Math.floor(0.001 * sr);
+  for (let i = 0; i < fadeIn; i++) out[i] *= i / fadeIn;
+  const fade = Math.min(Math.floor(out.length / 10), 2000);
   for (let i = 0; i < fade; i++) out[out.length - 1 - i] *= i / fade;
   return out;
 }
-const sr_fade = (len: number) => Math.min(2000, len / 10);
+
+/** Add a sine partial with an exponential envelope, using a rotating phasor (much cheaper than Math.sin). */
+function addPartial(out: Float32Array, w: number, phase: number, amp: number, k1: number, k2: number, e1: number, e2: number) {
+  let re = Math.cos(phase);
+  let im = Math.sin(phase);
+  const c = Math.cos(w);
+  const sn = Math.sin(w);
+  for (let i = 0; i < out.length; i++) {
+    const env = e1 + e2;
+    if (env < 0.0004) break;
+    out[i] += amp * env * im;
+    const r = re * c - im * sn;
+    im = re * sn + im * c;
+    re = r;
+    e1 *= k1;
+    e2 *= k2;
+  }
+}
+
+/**
+ * Karplus–Strong loop parameters that tune exactly: the loop filter's phase delay and the
+ * interpolator's are both accounted for, and the filter is lightened on high notes so they ring.
+ */
+const phaseDelay = (S: number, w: number) => Math.atan2(S * Math.sin(w), 1 - S + S * Math.cos(w)) / w;
+function ksParams(f0: number, sr: number, Sbase: number, tau: number) {
+  const w0 = (TAU * f0) / sr;
+  const loss = (S: number) => -0.5 * Math.log(1 - 2 * S * (1 - S) * (1 - Math.cos(w0))) * f0;
+  let S = Sbase;
+  while (S > 0.02 && loss(S) > 0.7 / tau) S *= 0.9;
+  const target = sr / f0 - phaseDelay(S, w0);
+  const Ni = Math.floor(target);
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 30; k++) {
+    const mid = (lo + hi) / 2;
+    if (phaseDelay(mid, w0) < target - Ni) lo = mid;
+    else hi = mid;
+  }
+  return { S, Ni, fr: (lo + hi) / 2, g: Math.exp(-1 / (tau * f0)) };
+}
+
+function pluck(out: Float32Array, f0: number, sr: number, Sbase: number, tau: number, pickLp: number) {
+  const { S, Ni, fr, g } = ksParams(f0, sr, Sbase, tau);
+  let lp = 0;
+  for (let i = 0; i < Ni + 2 && i < out.length; i++) {
+    lp += pickLp * (Math.random() * 2 - 1 - lp);
+    out[i] = lp;
+  }
+  let prevY = 0;
+  for (let i = Ni + 2; i < out.length; i++) {
+    const y = (1 - fr) * out[i - Ni] + fr * out[i - Ni - 1];
+    out[i] = g * ((1 - S) * y + S * prevY);
+    prevY = y;
+  }
+}
 
 function renderPiano(midi: number, sr: number) {
   const f0 = midiToFreq(midi);
@@ -64,23 +127,11 @@ function renderPiano(midi: number, sr: number) {
     if (n === 1 && midi < 45) amp *= 0.6;
     const t2 = baseDecay / (1 + 0.32 * (n - 1));
     const t1 = 0.22 / (1 + 0.15 * (n - 1));
-    // two slightly detuned strings → natural beating
-    for (const det of [-0.00045, 0.00045]) {
-      const w = (TAU * fn * (1 + det)) / sr;
-      const phase = Math.random() * TAU;
-      const a = amp * 0.5;
-      const k1 = Math.exp(-1 / (t1 * sr));
-      const k2 = Math.exp(-1 / (t2 * sr));
-      let e1 = 0.55;
-      let e2 = 0.45;
-      for (let i = 0; i < len; i++) {
-        const env = e1 + e2;
-        if (env < 0.0004) break;
-        out[i] += a * env * Math.sin(w * i + phase);
-        e1 *= k1;
-        e2 *= k2;
-      }
-    }
+    // two slightly detuned strings struck in phase by the same hammer → gentle beating, no cancellation
+    const phase = Math.random() * TAU;
+    const k1 = Math.exp(-1 / (t1 * sr));
+    const k2 = Math.exp(-1 / (t2 * sr));
+    for (const det of [-0.00045, 0.00045]) addPartial(out, (TAU * fn * (1 + det)) / sr, phase, amp * 0.5, k1, k2, 0.55, 0.45);
   }
   // attack ramp
   for (let i = 0; i < attack; i++) out[i] *= i / attack;
@@ -92,7 +143,7 @@ function renderPiano(midi: number, sr: number) {
     lp += coef * (Math.random() * 2 - 1 - lp);
     out[i] += lp * 0.06 * Math.exp(-i / (0.004 * sr));
   }
-  return normalize(out);
+  return normalize(out, sr);
 }
 
 function renderEPiano(midi: number, sr: number) {
@@ -110,30 +161,16 @@ function renderEPiano(midi: number, sr: number) {
     const trem = 1 + 0.06 * Math.sin(TAU * 4.5 * t);
     out[i] = env * trem * (Math.sin(w * i + idx * Math.sin(w * i)) + tine);
   }
-  return normalize(out, 0.5);
+  return normalize(out, sr);
 }
 
 function renderGuitar(midi: number, sr: number) {
   const f0 = midiToFreq(midi);
   const len = Math.floor(INSTRUMENT_LENGTH.guitar * sr);
   const out = new Float32Array(len);
-  const P = sr / f0 - 0.5;
-  const Ni = Math.floor(P);
-  const fr = P - Ni;
   const tau = Math.min(3, Math.max(0.8, 2.2 * Math.sqrt(196 / f0)));
-  const decay = Math.exp(-1 / (tau * f0));
-  // excitation: lowpassed noise (softer pick)
-  let lp = 0;
-  for (let i = 0; i < Ni + 2 && i < len; i++) {
-    lp += 0.55 * (Math.random() * 2 - 1 - lp);
-    out[i] = lp;
-  }
-  let prevY = 0;
-  for (let i = Ni + 2; i < len; i++) {
-    const y = (1 - fr) * out[i - Ni] + fr * out[i - Ni - 1];
-    out[i] = decay * 0.5 * (y + prevY);
-    prevY = y;
-  }
+  // softer pick: lowpassed noise excitation
+  pluck(out, f0, sr, 0.5, tau, 0.55);
   // gentle body resonance: one-pole lowpass + DC block
   let s = 0;
   let px = 0;
@@ -145,7 +182,7 @@ function renderGuitar(midi: number, sr: number) {
     py = yy;
     out[i] = yy;
   }
-  return normalize(out, 0.55);
+  return normalize(out, sr);
 }
 
 /** Clean-ish electric guitar: bright, long Karplus–Strong string through a soft amp drive. */
@@ -153,23 +190,9 @@ function renderEGuitar(midi: number, sr: number) {
   const f0 = midiToFreq(midi);
   const len = Math.floor(INSTRUMENT_LENGTH.eguitar * sr);
   const out = new Float32Array(len);
-  const P = sr / f0 - 0.5;
-  const Ni = Math.floor(P);
-  const fr = P - Ni;
   const tau = Math.min(4.5, Math.max(1.2, 3.4 * Math.sqrt(196 / f0)));
-  const decay = Math.exp(-1 / (tau * f0));
-  let lp = 0;
-  for (let i = 0; i < Ni + 2 && i < len; i++) {
-    lp += 0.85 * (Math.random() * 2 - 1 - lp);
-    out[i] = lp;
-  }
-  let prevY = 0;
-  for (let i = Ni + 2; i < len; i++) {
-    const y = (1 - fr) * out[i - Ni] + fr * out[i - Ni - 1];
-    // less damping than the acoustic: blend towards the undamped sample
-    out[i] = decay * (0.7 * y + 0.3 * (0.5 * (y + prevY)));
-    prevY = y;
-  }
+  // brighter, less damped string than the acoustic
+  pluck(out, f0, sr, 0.15, tau, 0.85);
   // pickup: comb filter (pickup near the bridge thins the low end)
   const d = Math.max(1, Math.floor(sr / f0 / 7));
   const picked = new Float32Array(len);
@@ -180,7 +203,8 @@ function renderEGuitar(midi: number, sr: number) {
   let py = 0;
   let peak = 0;
   for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(picked[i]));
-  const gain = peak > 0 ? 2.2 / peak : 1;
+  // less drive up high to keep tanh aliasing down
+  const gain = peak > 0 ? (midi > 84 ? 1.4 : 2.2) / peak : 1;
   for (let i = 0; i < len; i++) {
     const x = Math.tanh(picked[i] * gain);
     s += 0.45 * (x - s);
@@ -189,7 +213,7 @@ function renderEGuitar(midi: number, sr: number) {
     py = yy;
     out[i] = yy;
   }
-  return normalize(out, 0.5);
+  return normalize(out, sr);
 }
 
 /** Recorder: near-sine flue tone with breath noise, an attack "chiff" and gentle vibrato. */
@@ -223,10 +247,11 @@ function renderRecorder(midi: number, sr: number) {
     nlp2 += bw * (nlp - nlp2);
     const breath = (nlp - nlp2) * 2.2;
     const env = Math.min(1, t / 0.04) * (0.92 + 0.08 * Math.min(1, t / 0.6));
-    const chiff = Math.exp(-t / 0.025) * 0.35 * n;
+    // attack "chiff": band-limited breath burst, not full-band hiss
+    const chiff = Math.exp(-t / 0.025) * 0.5 * breath;
     out[i] = env * (v + 0.06 * breath) + chiff * Math.min(1, t / 0.004);
   }
-  return normalize(out, 0.42);
+  return normalize(out, sr);
 }
 
 function renderOrgan(midi: number, sr: number) {
@@ -245,14 +270,13 @@ function renderOrgan(midi: number, sr: number) {
   const att = 0.025 * sr;
   for (const [h, a] of bars) {
     if (f0 * h > nyq) continue;
-    const w = (TAU * f0 * h) / sr;
-    for (let i = 0; i < len; i++) out[i] += a * Math.sin(w * i);
+    addPartial(out, (TAU * f0 * h) / sr, 0, a, 1, 1, 1, 0);
   }
   for (let i = 0; i < len; i++) {
     const t = i / sr;
     out[i] *= Math.min(1, i / att) * (1 + 0.04 * Math.sin(TAU * 5.5 * t));
   }
-  return normalize(out, 0.45);
+  return normalize(out, sr);
 }
 
 export function renderClick(sr: number, accent: boolean): Float32Array {
@@ -274,11 +298,13 @@ export function renderDrum(kind: Drum, sr: number): Float32Array {
   let lp = 0;
   let hp = 0;
   let prev = 0;
+  let ph = 0;
   for (let i = 0; i < len; i++) {
     const t = i / sr;
     if (kind === 'kick') {
-      const f = 45 + 110 * Math.exp(-t / 0.035);
-      out[i] = Math.sin(TAU * f * t + 0) * Math.exp(-t / 0.12) * 0.9;
+      // integrate the falling pitch so it settles at 45 Hz
+      ph += (TAU * (45 + 110 * Math.exp(-t / 0.035))) / sr;
+      out[i] = Math.sin(ph) * Math.exp(-t / 0.12) * 0.9;
     } else if (kind === 'snare') {
       const n = Math.random() * 2 - 1;
       lp += 0.35 * (n - lp);
@@ -290,5 +316,7 @@ export function renderDrum(kind: Drum, sr: number): Float32Array {
       out[i] = hp * Math.exp(-t / 0.018) * 0.35;
     }
   }
+  const fade = Math.floor(0.005 * sr);
+  for (let i = 0; i < fade; i++) out[len - 1 - i] *= i / fade;
   return out;
 }
