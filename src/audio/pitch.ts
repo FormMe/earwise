@@ -73,10 +73,16 @@ export class MicPitch {
     this.source.connect(this.analyser);
   }
 
+  private half = new Float32Array(1024);
+
   read() {
     if (!this.analyser) return null;
     this.analyser.getFloatTimeDomainData(this.buf);
-    return detectPitch(this.buf, this.analyser.context.sampleRate);
+    const sr = this.analyser.context.sampleRate;
+    if (sr < 32000) return detectPitch(this.buf, sr);
+    // halve the rate (pairwise average = gentle low-pass): ~4x cheaper, still accurate to 1100 Hz
+    for (let i = 0; i < this.half.length; i++) this.half[i] = (this.buf[2 * i] + this.buf[2 * i + 1]) / 2;
+    return detectPitch(this.half, sr / 2);
   }
 
   stop() {

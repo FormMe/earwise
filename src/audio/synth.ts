@@ -79,35 +79,44 @@ function addPartial(out: Float32Array, w: number, phase: number, amp: number, k1
  * interpolator's are both accounted for, and the filter is lightened on high notes so they ring.
  */
 const phaseDelay = (S: number, w: number) => Math.atan2(S * Math.sin(w), 1 - S + S * Math.cos(w)) / w;
+/** Phase delay of a first-order allpass with coefficient eta at frequency w. */
+const apDelay = (eta: number, w: number) => -(Math.atan2(-Math.sin(w), eta + Math.cos(w)) - Math.atan2(-eta * Math.sin(w), 1 + eta * Math.cos(w))) / w;
+
 function ksParams(f0: number, sr: number, Sbase: number, tau: number) {
   const w0 = (TAU * f0) / sr;
   const loss = (S: number) => -0.5 * Math.log(1 - 2 * S * (1 - S) * (1 - Math.cos(w0))) * f0;
   let S = Sbase;
   while (S > 0.02 && loss(S) > 0.7 / tau) S *= 0.9;
-  const target = sr / f0 - phaseDelay(S, w0);
-  const Ni = Math.floor(target);
-  let lo = 0;
-  let hi = 1;
-  for (let k = 0; k < 30; k++) {
+  // integer delay + allpass fractional delay: exact tuning without the low-pass loss of linear interpolation
+  const D = sr / f0 - phaseDelay(S, w0);
+  const Ni = Math.floor(D - 0.1);
+  const frac = D - Ni;
+  let lo = -0.5;
+  let hi = 0.95;
+  for (let k = 0; k < 40; k++) {
     const mid = (lo + hi) / 2;
-    if (phaseDelay(mid, w0) < target - Ni) lo = mid;
+    if (apDelay(mid, w0) > frac) lo = mid;
     else hi = mid;
   }
-  return { S, Ni, fr: (lo + hi) / 2, g: Math.exp(-1 / (tau * f0)) };
+  return { S, Ni, eta: (lo + hi) / 2, g: Math.exp(-1 / (tau * f0)) };
 }
 
 function pluck(out: Float32Array, f0: number, sr: number, Sbase: number, tau: number, pickLp: number) {
-  const { S, Ni, fr, g } = ksParams(f0, sr, Sbase, tau);
+  const { S, Ni, eta, g } = ksParams(f0, sr, Sbase, tau);
   let lp = 0;
-  for (let i = 0; i < Ni + 2 && i < out.length; i++) {
+  for (let i = 0; i < Ni && i < out.length; i++) {
     lp += pickLp * (Math.random() * 2 - 1 - lp);
     out[i] = lp;
   }
-  let prevY = 0;
-  for (let i = Ni + 2; i < out.length; i++) {
-    const y = (1 - fr) * out[i - Ni] + fr * out[i - Ni - 1];
-    out[i] = g * ((1 - S) * y + S * prevY);
-    prevY = y;
+  let xPrev = 0;
+  let ap = 0;
+  let apPrev = 0;
+  for (let i = Ni; i < out.length; i++) {
+    const x = out[i - Ni];
+    ap = eta * x + xPrev - eta * ap;
+    xPrev = x;
+    out[i] = g * ((1 - S) * ap + S * apPrev);
+    apPrev = ap;
   }
 }
 
@@ -127,11 +136,11 @@ function renderPiano(midi: number, sr: number) {
     if (n === 1 && midi < 45) amp *= 0.6;
     const t2 = baseDecay / (1 + 0.32 * (n - 1));
     const t1 = 0.22 / (1 + 0.15 * (n - 1));
-    // two slightly detuned strings struck in phase by the same hammer → gentle beating, no cancellation
+    // two slightly detuned strings of unequal level → gentle beating that never fully cancels
     const phase = Math.random() * TAU;
     const k1 = Math.exp(-1 / (t1 * sr));
     const k2 = Math.exp(-1 / (t2 * sr));
-    for (const det of [-0.00045, 0.00045]) addPartial(out, (TAU * fn * (1 + det)) / sr, phase, amp * 0.5, k1, k2, 0.55, 0.45);
+    for (const [det, a] of [[-0.00045, 0.6], [0.00045, 0.4]]) addPartial(out, (TAU * fn * (1 + det)) / sr, phase, amp * a, k1, k2, 0.55, 0.45);
   }
   // attack ramp
   for (let i = 0; i < attack; i++) out[i] *= i / attack;
@@ -239,8 +248,18 @@ function renderRecorder(midi: number, sr: number) {
     const vib = t > 0.35 ? 0.0035 * Math.sin(TAU * 5.2 * t) * Math.min(1, (t - 0.35) * 3) : 0;
     const bend = 0.006 * Math.exp(-t / 0.03);
     phase += (TAU * f0 * (1 + vib + bend)) / sr;
+    // harmonics by angle addition from one sin/cos pair (much cheaper than five Math.sin calls)
+    const s1 = Math.sin(phase);
+    const c1 = Math.cos(phase);
+    let sn = s1;
+    let cn = c1;
     let v = 0;
-    for (const [h, a] of harm) if (f0 * h < nyq) v += a * Math.sin(h * phase);
+    for (let h = 1; h <= harm.length; h++) {
+      if (f0 * h < nyq) v += harm[h - 1][1] * sn;
+      const s2 = sn * c1 + cn * s1;
+      cn = cn * c1 - sn * s1;
+      sn = s2;
+    }
     // breath noise, band-limited around the note
     const n = Math.random() * 2 - 1;
     nlp += bw * (n - nlp);

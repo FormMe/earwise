@@ -43,6 +43,7 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     (withPattern: boolean) => {
       audio.stopAll();
       const ctx = audio.ensure();
+      audio.preload([76]);
       const t0 = ctx.currentTime + 0.15;
       const beat = s16 * 4;
       // 4-beat count-in, then clicks through the pattern
@@ -97,7 +98,8 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     });
     const errs = rough.filter((x): x is number => x != null).sort((a, b) => a - b);
     // forgive a steady device latency, but never a whole note's shift
-    const cap = Math.min(0.12, s16 * 0.6);
+    // Safari doesn't report Bluetooth output latency: forgive a larger steady offset there
+    const cap = audio.ensure().outputLatency ? Math.min(0.12, s16 * 0.6) : Math.min(0.25, s16 * 0.9);
     const offset = errs.length >= 2 ? Math.max(-cap, Math.min(cap, errs[Math.floor(errs.length / 2)])) : 0;
     const adj = raw.map((x) => x - offset);
     const tol = Math.max(0.085, s16 * 0.45);

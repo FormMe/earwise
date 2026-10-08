@@ -58,9 +58,10 @@ class AudioEngine {
       this.ctx = new AC({ latencyHint: 'interactive' });
       const ctx = this.ctx;
       const comp = ctx.createDynamicsCompressor();
-      comp.threshold.value = -18;
+      // gentle glue only: browsers add automatic makeup gain, so a hard setting flattens accents
+      comp.threshold.value = -12;
       comp.knee.value = 6;
-      comp.ratio.value = 6;
+      comp.ratio.value = 3;
       comp.attack.value = 0.003;
       comp.release.value = 0.2;
       // brick-wall limiter as the very last stage: chords + bass + drums + reverb never clip
@@ -79,7 +80,10 @@ class AudioEngine {
       conv.buffer = this.makeImpulse(ctx, 1.6);
       this.dry.connect(this.master);
       this.wet.connect(conv).connect(this.master);
-      this.master.connect(comp).connect(limiter).connect(ctx.destination);
+      // cancels the compressor's ≈+4.8 dB automatic makeup gain: unity below the threshold
+      const trim = ctx.createGain();
+      trim.gain.value = 0.58;
+      this.master.connect(comp).connect(trim).connect(limiter).connect(ctx.destination);
       this.clicks = [false, true].map((acc) => this.toBuffer(renderClick(ctx.sampleRate, acc)));
     }
     // iOS reports 'interrupted' after calls/Siri; resume from any non-running state
@@ -135,6 +139,14 @@ class AudioEngine {
     const b = ctx.createBuffer(1, data.length, ctx.sampleRate);
     b.getChannelData(0).set(data);
     return b;
+  }
+
+  /** audio-clock time at which the last play() started (after its rendering) */
+  lastT0 = 0;
+
+  /** render notes ahead of time so that scheduling right after is not delayed */
+  preload(midis: number[], inst = this.instrument) {
+    for (const m of midis) this.buffer(m, inst);
   }
 
   private buffer(midi: number, inst = this.instrument) {
@@ -252,6 +264,7 @@ class AudioEngine {
       for (const m of notes) this.buffer(m, instFor(e, notes.length));
     }
     const t0 = ctx.currentTime + 0.06;
+    this.lastT0 = t0;
     let end = 0;
     for (const e of events) {
       if (e.drum) {
