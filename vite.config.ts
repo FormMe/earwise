@@ -7,7 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   base: './',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // version + build date/time (UTC), so it's easy to see which build a device is running
+  define: { __APP_VERSION__: JSON.stringify(`${pkg.version} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`) },
   // supported floor: Chrome/Android WebView 111+, Safari/iOS 16.4+ (color-mix, :has, ??=)
   build: { target: ['chrome111', 'safari16.4', 'firefox114', 'edge111'] },
   plugins: [
@@ -24,6 +25,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
+        importScripts: ['sw-migrate.js'],
       },
       manifest: {
         id: './',
