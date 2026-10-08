@@ -147,6 +147,7 @@ export function StatsScreen() {
       <section className="card">
         <h3>{t('activity')}</h3>
         <Heatmap days={st.days} />
+        {Object.keys(st.days).length === 0 && <p className="muted small hm-empty">{lang === 'ru' ? 'Занимайся — и календарь начнёт заполняться.' : 'Practise to fill the calendar.'}</p>}
       </section>
 
       <section className="card">

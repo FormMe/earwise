@@ -21,8 +21,14 @@ export function PathScreen() {
 
   const current = ALL_LESSONS.find((l) => !l.unit.optional && !(lessons[l.id]?.stars > 0))?.id;
 
+  const [curVisible, setCurVisible] = useState(true);
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'center' });
+    const el = currentRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setCurVisible(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   const start = (id: string) => {
@@ -35,15 +41,16 @@ export function PathScreen() {
   let globalIdx = 0;
   return (
     <div className="path">
+      {Object.values(lessons).some((x) => x.plays > 0) && (
       <div className="quick">
         <button
           className={`quick-card daily ${dailyDone ? 'done' : ''}`}
           onClick={() => {
             audio.unlock();
-            startSession(dailySpec(lessons, items, lang, unlockAll));
+            startSession(dailySpec(lessons, items, lang, unlockAll, useStore.getState().dailyDone));
           }}
         >
-          <span className="qc-icon">📆</span>
+          <span className="qc-icon">🎯</span>
           <span className="qc-text">
             <b>{t('daily')}</b>
             <small>{dailyDone ? t('dailyDone') : t('dailyDesc')}</small>
@@ -65,6 +72,8 @@ export function PathScreen() {
           </span>
         </button>
       </div>
+
+      )}
 
       {!Object.values(lessons).some((x) => x.stars > 0) && (
         <button
@@ -123,6 +132,7 @@ export function PathScreen() {
                       <span className="node-icon">{unlocked ? icon : '🔒'}</span>
                       {stale && <span className="node-stale" title={t('needsPractice')}>↻</span>}
                     </button>
+                    {isCur && <div className="node-caption">{lang === 'ru' ? l.ru : l.en}</div>}
                     <div className="node-stars">
                       {[1, 2, 3].map((s) => (
                         <span key={s} className={s <= stars ? 'on' : ''}>
@@ -170,6 +180,11 @@ export function PathScreen() {
         );
       })}
       <div className="path-end">🎼</div>
+      {!curVisible && current && (
+        <button className="btn primary small to-current" onClick={() => currentRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })}>
+          {lang === 'ru' ? '📍 К текущему уроку' : '📍 Current lesson'}
+        </button>
+      )}
     </div>
   );
 }

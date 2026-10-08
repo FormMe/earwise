@@ -25,7 +25,7 @@ const unitDone = (c: AchievementCtx, unitId: string) => {
 };
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first', icon: '🎧', ru: ['Первый звук', 'Пройди первое занятие'], en: ['First sound', 'Finish your first session'], check: (c) => c.totals.sessions >= 1 },
+  { id: 'first', icon: '🎧', ru: ['Первый звук', 'Пройди первый урок'], en: ['First sound', 'Pass your first lesson'], check: (c) => Object.values(c.lessons).some((l) => l.stars > 0) },
   { id: 'perfect', icon: '💎', ru: ['Без ошибок', 'Пройди урок на 100%'], en: ['Flawless', 'Finish a lesson with 100%'], check: (c) => c.totals.perfect >= 1 },
   { id: 'perfect10', icon: '👑', ru: ['Перфекционист', '10 идеальных занятий'], en: ['Perfectionist', '10 perfect sessions'], check: (c) => c.totals.perfect >= 10 },
   { id: 'combo10', icon: '🔥', ru: ['В ударе', 'Серия из 10 верных ответов'], en: ['On fire', '10 correct in a row'], check: (c) => c.totals.bestCombo >= 10 },

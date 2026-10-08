@@ -89,10 +89,11 @@ interface State {
   setSettings: (s: Partial<Settings>) => void;
   setOnboarded: () => void;
   /** returns how many items just became mastered */
-  recordAnswer: (keys: string[], correct: boolean) => number;
+  recordAnswer: (keys: string[], correct: boolean, countTotals?: boolean) => number;
   recordSung: () => void;
   finishSession: (r: SessionResult) => FinishOutcome;
   resetProgress: () => void;
+  resetGen: number;
 }
 
 export const todayStr = (d = new Date()) => {
@@ -148,6 +149,8 @@ const initialSettings = (): Settings => {
 };
 
 const initialProgress = () => ({
+  /** bumped by "reset progress" so cloud merges don't bring old progress back */
+  resetGen: 0,
   onboarded: false,
   xp: 0,
   days: {} as Record<string, number>,
@@ -170,7 +173,7 @@ export const useStore = create<State>()(
       setSettings: (s) => set({ settings: { ...get().settings, ...s } }),
       setOnboarded: () => set({ onboarded: true }),
 
-      recordAnswer: (keys, correct) => {
+      recordAnswer: (keys, correct, countTotals = true) => {
         let newlyMastered = 0;
         const items = { ...get().items };
         const now = Date.now();
@@ -186,7 +189,7 @@ export const useStore = create<State>()(
           if (b >= 3 && prevBox < 3) newlyMastered++;
         }
         const totals = get().totals;
-        set({ items, totals: { ...totals, answers: totals.answers + 1, correct: totals.correct + (correct ? 1 : 0) } });
+        set({ items, totals: countTotals ? { ...totals, answers: totals.answers + 1, correct: totals.correct + (correct ? 1 : 0) } : totals });
         return newlyMastered;
       },
 
@@ -209,7 +212,9 @@ export const useStore = create<State>()(
         let streakExtended = false;
         if (r.xp > 0 && streak.last !== today) {
           const gap = streak.last ? daysBetween(streak.last, today) : 999;
-          if (gap === 1) streak.count += 1;
+          // clock/time-zone jumps backwards keep the streak as it is
+          if (gap <= 0) streak.count = Math.max(1, streak.count);
+          else if (gap === 1) streak.count += 1;
           else if (gap === 2 && freezes > 0) {
             freezes -= 1;
             streak.count += 1;
@@ -286,7 +291,7 @@ export const useStore = create<State>()(
         };
       },
 
-      resetProgress: () => set({ ...initialProgress(), onboarded: true }),
+      resetProgress: () => set({ ...initialProgress(), onboarded: true, resetGen: Date.now() }),
     }),
     {
       name: 'earwise-v1',

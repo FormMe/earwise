@@ -58,24 +58,24 @@ export function genTonicFind(cfg: Extract<ExerciseConfig, { kind: 'tonicFind' }>
     t += durs[i] * step;
     return e;
   });
-  const letters = ['A', 'B', 'C'];
+  const letters = ['1', '2', '3'];
   const choices: Choice[] = cands.map((x, i) => ({
     id: 'c' + i,
-    label: tr(ctx, `Нота ${letters[i]}`, `Note ${letters[i]}`),
+    label: tr(ctx, `${letters[i]}-я нота`, `Note ${letters[i]}`),
     audio: [{ t: 0, d: 1.2, midi: tonic + x }],
   }));
   const ans = 'c' + cands.indexOf(0);
   const cad = cadenceEvents(tonic, minor, ctx.tempo);
   return {
     kind: 'tonicFind',
-    prompt: tr(ctx, 'Какая из трёх нот — «дом» (тоника) этой мелодии?', 'Which of the three notes is “home” (the tonic)?'),
+    prompt: tr(ctx, 'После мелодии звучат 3 ноты. Какая из них — «дом» мелодии?', 'Which of the three notes is “home” (the tonic)?'),
     stimulus: [...phrase, ...cands.map((x, i) => ({ t: t + 0.6 + i * 1.1, d: 0.9, midi: tonic + x }))],
     alt: [{ label: tr(ctx, 'Только мелодия', 'Melody only'), events: phrase }],
     input: 'choice',
     choices,
     answer: [ans],
     itemKeys: [`tonic:${minor ? 'm' : 'M'}`],
-    answerLabel: tr(ctx, `Нота ${letters[cands.indexOf(0)]}`, `Note ${letters[cands.indexOf(0)]}`),
+    answerLabel: tr(ctx, `${letters[cands.indexOf(0)]}-я нота`, `Note ${letters[cands.indexOf(0)]}`),
     afterAnswer: cad.events,
     explain: tr(ctx, 'Тоника — нота, на которой мелодия «успокаивается». Каденция подтверждает дом.', 'The tonic is where the melody comes to rest. The cadence confirms it.'),
   };
@@ -280,7 +280,7 @@ export function genPulse(cfg: Extract<ExerciseConfig, { kind: 'pulse' }>, ctx: G
     choices: [],
     answer: ['ok'],
     itemKeys: ['pulse'],
-    answerLabel: `${Math.round(bpm)} BPM`,
+    answerLabel: tr(ctx, 'Стучи ровно, как шаги: раз-два-три-четыре', 'Tap evenly, like walking: one-two-three-four'),
     pulse: { events, beats, tapFrom: bar - beat / 2, total: bar * 4 + 0.3 },
   };
 }

@@ -8,14 +8,15 @@ import { CHORDS } from '../theory/chords';
 import { INTERVALS } from '../theory/intervals';
 import { SCALES } from '../theory/scales';
 import { Piano } from '../components/Piano';
+import { GLOSSARY } from '../game/help';
 
-type Tab = 'int' | 'chord' | 'scale' | 'piano';
+type Tab = 'gloss' | 'int' | 'chord' | 'scale' | 'piano';
 
 export function ReferenceScreen() {
   const t = useT();
   const lang = useLang();
   const back = useNav((s) => s.back);
-  const [tab, setTab] = useState<Tab>('int');
+  const [tab, setTab] = useState<Tab>('gloss');
   const [active, setActive] = useState<Record<number, 'active'>>({});
   const tempo = { slow: 1.35, normal: 1, fast: 0.78 }[useStore((s) => s.settings.tempo)];
   const root = 60;
@@ -36,6 +37,7 @@ export function ReferenceScreen() {
       <div className="seg tabs">
         {(
           [
+            ['gloss', t('glossary')],
             ['int', lang === 'ru' ? 'Интервалы' : 'Intervals'],
             ['chord', lang === 'ru' ? 'Аккорды' : 'Chords'],
             ['scale', lang === 'ru' ? 'Лады' : 'Scales'],
@@ -48,13 +50,24 @@ export function ReferenceScreen() {
         ))}
       </div>
 
+      {tab === 'gloss' && (
+        <dl className="gloss card">
+          {GLOSSARY.map((g) => (
+            <div key={g.ru[0]}>
+              <dt>{g[lang][0]}</dt>
+              <dd>{g[lang][1]}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
       {tab === 'int' &&
         INTERVALS.filter((i) => i.semis >= 1 && i.semis <= 12).map((i) => (
           <div key={i.id} className="ref-item">
             <div className="ref-main">
               <div className="ref-title">
                 <span className="badge">{lang === 'ru' ? i.short : i.id}</span> {lang === 'ru' ? i.ru : i.en}
-                <span className="muted small nowrap"> · {i.semis} {lang === 'ru' ? 'пт.' : 'st'}</span>
+                <span className="muted small nowrap"> · {i.semis} {lang === 'ru' ? 'полутон.' : 'st'}</span>
               </div>
               {i.up && (
                 <div className="small">
@@ -68,13 +81,13 @@ export function ReferenceScreen() {
               )}
             </div>
             <div className="ref-btns">
-              <button className="chip" onClick={() => play(intervalEvents(root, i.semis, 'up', tempo))}>
+              <button className="chip" aria-label={lang === 'ru' ? 'вверх' : 'up'} title={lang === 'ru' ? 'вверх' : 'up'} onClick={() => play(intervalEvents(root, i.semis, 'up', tempo))}>
                 ↑
               </button>
-              <button className="chip" onClick={() => play(intervalEvents(root + 12, i.semis, 'down', tempo))}>
+              <button className="chip" aria-label={lang === 'ru' ? 'вниз' : 'down'} title={lang === 'ru' ? 'вниз' : 'down'} onClick={() => play(intervalEvents(root + 12, i.semis, 'down', tempo))}>
                 ↓
               </button>
-              <button className="chip" onClick={() => play(intervalEvents(root, i.semis, 'harm', tempo))}>
+              <button className="chip" aria-label={lang === 'ru' ? 'вместе' : 'together'} title={lang === 'ru' ? 'вместе' : 'together'} onClick={() => play(intervalEvents(root, i.semis, 'harm', tempo))}>
                 ⇅
               </button>
             </div>

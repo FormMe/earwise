@@ -30,6 +30,11 @@ function trimTail(data: Float32Array): Float32Array {
   return out;
 }
 
+if (typeof document !== 'undefined')
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') audio.context?.state !== 'running' && void audio.context?.resume().catch(() => {});
+  });
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
@@ -77,8 +82,16 @@ class AudioEngine {
       this.master.connect(comp).connect(limiter).connect(ctx.destination);
       this.clicks = [false, true].map((acc) => this.toBuffer(renderClick(ctx.sampleRate, acc)));
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    // iOS reports 'interrupted' after calls/Siri; resume from any non-running state
+    if (this.ctx.state !== 'running') void this.ctx.resume().catch(() => {});
     return this.ctx;
+  }
+
+  /** Resolves once the audio clock is actually running (use before reading currentTime for timing). */
+  async ready() {
+    const c = this.ensure();
+    if (c.state !== 'running') await c.resume().catch(() => {});
+    return c;
   }
 
   /** Must be called from a user gesture on iOS. Plays a silent buffer to unlock audio. */

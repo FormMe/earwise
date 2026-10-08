@@ -53,6 +53,11 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
       <div className="results-head">
         <div className="results-emoji">{passed ? (acc === 100 ? '🏆' : '🎉') : '💪'}</div>
         <h1>{placed != null ? spec.title : arcade ? spec.title : isLesson ? (passed ? t('lessonComplete') : t('tryAgain')) : t('sessionComplete')}</h1>
+        {isLesson && !passed && spec.pass && (
+          <div className="level-done fail">
+            {t('needPct')} {Math.round(spec.pass * 100)}% — {t('youGot')} {acc}%
+          </div>
+        )}
         {isLesson && passed && spec.level && (
           <div className="level-done">
             {'👑'.repeat(spec.level)} {lang === 'ru' ? 'Уровень' : 'Level'} {spec.level}/{MAX_LEVEL} · {LEVELS[lang][spec.level]}
@@ -121,7 +126,7 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
           const a = ACHIEVEMENTS.find((x) => x.id === id)!;
           const [name, desc] = lang === 'ru' ? a.ru : a.en;
           return (
-            <div key={id} className="banner ach">
+            <div key={id} className="banner ach-banner">
               <span className="ach-icon">{a.icon}</span>
               <div>
                 <b>

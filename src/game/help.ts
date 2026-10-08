@@ -87,3 +87,23 @@ export const KIND_HELP: Record<ExerciseKind, { ru: [string, string]; en: [string
     en: ['Music with drums plays.', 'Listen for a bar, then tap every beat as if tapping your foot.'],
   },
 };
+
+/** Short definitions of the terms the course uses, in the order a beginner meets them. */
+export const GLOSSARY: { ru: [string, string]; en: [string, string] }[] = [
+  { ru: ['Полутон', 'Самый маленький шаг: две соседние клавиши пианино.'], en: ['Semitone', 'The smallest step: two neighbouring piano keys.'] },
+  { ru: ['Доля', 'Один ровный «шаг» музыки, то, что отстукивает метроном.'], en: ['Beat', 'One steady step of the music — what a metronome clicks.'] },
+  { ru: ['Такт', 'Группа долей (обычно 4: «раз-два-три-четыре»).'], en: ['Bar', 'A group of beats (usually 4).'] },
+  { ru: ['Тоника', '«Дом» мелодии: нота, на которой музыке спокойно и хочется закончить.'], en: ['Tonic', 'Home: the note where the music feels at rest.'] },
+  { ru: ['Ступень', 'Номер ноты, считая от дома: дом = 1, следующая нота гаммы = 2 и т.д. Ступени поют как «до-ре-ми» от дома — в любой тональности.'], en: ['Scale degree', 'A note’s number counted from home (1, 2, 3…).'] },
+  { ru: ['Тональность', 'Набор нот вокруг одного «дома», например «Ре мажор».'], en: ['Key', 'The set of notes around one home, e.g. D major.'] },
+  { ru: ['Каденция', 'Несколько аккордов, которые звучат как «точка» и задают дом. Перед вопросами про ступени играет именно она.'], en: ['Cadence', 'A few chords that sound like a full stop and set the key.'] },
+  { ru: ['Интервал', 'Расстояние между двумя нотами (терция, квинта, октава…).'], en: ['Interval', 'The distance between two notes.'] },
+  { ru: ['Аккорд', 'Три и больше нот одновременно. Мажорный — светлый, минорный — грустный.'], en: ['Chord', 'Three or more notes at once. Major is bright, minor sad.'] },
+  { ru: ['Мажор / минор', 'Две главные «окраски» музыки: светлая и грустная.'], en: ['Major / minor', 'The two main colours of music: bright and sad.'] },
+  { ru: ['Римские цифры (I, IV, V)', 'Номер аккорда по ступени, на которой он построен. Большие — мажорные, маленькие (ii, vi) — минорные.'], en: ['Roman numerals', 'Which degree a chord is built on; upper case = major, lower case = minor.'] },
+  { ru: ['T / S / D', 'Роли аккордов: тоника — покой, субдоминанта — уход, доминанта — напряжение, тянет домой.'], en: ['T / S / D', 'Chord roles: tonic rest, subdominant away, dominant tension.'] },
+  { ru: ['Обращение', 'Аккорд, у которого внизу (в басу) не главная нота, а другая.'], en: ['Inversion', 'A chord with a note other than its root in the bass.'] },
+  { ru: ['Бас', 'Самый низкий голос — фундамент гармонии.'], en: ['Bass', 'The lowest voice — the foundation of the harmony.'] },
+  { ru: ['Октава', 'Та же нота выше или ниже. «Ля3» — ля третьей октавы (цифра — номер октавы).'], en: ['Octave', 'The same note higher or lower; the number in “A3” is the octave.'] },
+  { ru: ['Лад', 'Порядок шагов в гамме, который даёт музыке окраску (мажор, минор, дорийский…).'], en: ['Mode', 'The step pattern of a scale that gives music its colour.'] },
+];

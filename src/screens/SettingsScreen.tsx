@@ -23,8 +23,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return <button className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} role="switch" aria-checked={on} />;
+function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label?: string }) {
+  return <button className={`toggle ${on ? 'on' : ''}`} onClick={() => onChange(!on)} role="switch" aria-checked={on} aria-label={label} />;
 }
 
 export function SettingsScreen() {
@@ -131,28 +131,28 @@ export function SettingsScreen() {
         </Row>
         <Row label={t('goal')}>
           {seg('dailyGoal', [
-            { v: 30, l: '30' },
-            { v: 50, l: '50' },
-            { v: 100, l: '100' },
-            { v: 200, l: '200' },
+            { v: 30, l: '~5 мин' },
+            { v: 50, l: '~10 мин' },
+            { v: 100, l: '~15 мин' },
+            { v: 200, l: '~25 мин' },
           ])}
         </Row>
       </div>
       <div className="card">
         <Row label={t('fixedRoot')}>
-          <Toggle on={s.fixedRoot} onChange={(v) => up({ fixedRoot: v })} />
+          <Toggle label={t('fixedRoot')} on={s.fixedRoot} onChange={(v) => up({ fixedRoot: v })} />
         </Row>
         <Row label={t('autoNext')}>
-          <Toggle on={s.autoNext} onChange={(v) => up({ autoNext: v })} />
+          <Toggle label={t('autoNext')} on={s.autoNext} onChange={(v) => up({ autoNext: v })} />
         </Row>
         <Row label={t('sfx')}>
-          <Toggle on={s.sfx} onChange={(v) => up({ sfx: v })} />
+          <Toggle label={t('sfx')} on={s.sfx} onChange={(v) => up({ sfx: v })} />
         </Row>
         <Row label={t('haptics')}>
-          <Toggle on={s.haptics} onChange={(v) => up({ haptics: v })} />
+          <Toggle label={t('haptics')} on={s.haptics} onChange={(v) => up({ haptics: v })} />
         </Row>
         <Row label={t('unlockAll')}>
-          <Toggle on={s.unlockAll} onChange={(v) => up({ unlockAll: v })} />
+          <Toggle label={t('unlockAll')} on={s.unlockAll} onChange={(v) => up({ unlockAll: v })} />
         </Row>
       </div>
       <div className="card">

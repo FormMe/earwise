@@ -44,7 +44,7 @@ const usePractice = create<{ cfgs: Partial<Record<ExerciseKind, ExerciseConfig>>
   persist(
     (set, get) => ({
       cfgs: {},
-      kind: 'interval',
+      kind: 'pitch',
       set: (c) => set({ cfgs: { ...get().cfgs, [c.kind]: c } }),
       setKind: (kind) => set({ kind }),
     }),
@@ -397,7 +397,14 @@ export function PracticeScreen() {
 
       <div className="kind-grid">
         {(Object.keys(KIND_META) as ExerciseKind[]).map((k) => (
-          <button key={k} className={`kind ${k === kind ? 'on' : ''}`} onClick={() => setKind(k)}>
+          <button
+            key={k}
+            className={`kind ${k === kind ? 'on' : ''}`}
+            onClick={() => {
+              setKind(k);
+              requestAnimationFrame(() => document.querySelector('.editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+            }}
+          >
             <span className="kind-icon">{KIND_META[k].icon}</span>
             <span className="kind-name">{lang === 'ru' ? KIND_META[k].ru : KIND_META[k].en}</span>
           </button>

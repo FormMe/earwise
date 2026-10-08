@@ -62,7 +62,9 @@ export const UNITS: Unit[] = [
         intro: { ru: 'Слух начинается с простого: куда движется звук. Слушай обе ноты и решай — вверх или вниз.', en: 'Ear training starts simple: which way does the sound move?' },
       }),
       L('a2', 'Выше или ниже: ближе', 'Higher or lower: closer', { kind: 'pitch', min: 2, max: 5 }),
-      L('a3', 'Выше или ниже: полутоны', 'Higher or lower: semitones', { kind: 'pitch', min: 1, max: 2 }),
+      L('a3', 'Выше или ниже: полутоны', 'Higher or lower: semitones', { kind: 'pitch', min: 1, max: 2 }, {
+        intro: { ru: 'Полутон — самый маленький шаг в музыке: две соседние клавиши пианино (белая и чёрная рядом). Здесь ноты отличаются всего на 1–2 таких шага.', en: 'A semitone is the smallest step: two neighbouring piano keys.' },
+      }),
       L('a4', 'Повтори ноту голосом', 'Match the note', { kind: 'sing', mode: 'note' }, {
         intro: { ru: 'Петь — лучший способ слышать. Не бойся фальши: микрофон покажет, выше ты или ниже. Можно петь на октаву ниже или выше.', en: 'Singing is the fastest way to hear. Any octave counts.' },
       }),
@@ -504,9 +506,11 @@ export function isUnlocked(lessonId: string, lessons: Record<string, { stars: nu
     const i = l.unit.lessons.findIndex((x) => x.id === lessonId);
     return i <= 0 || (lessons[l.unit.lessons[i - 1].id]?.stars ?? 0) > 0;
   }
-  const idx = MAIN.findIndex((x) => x.id === lessonId);
-  if (idx <= 0) return true;
-  return (lessons[MAIN[idx - 1].id]?.stars ?? 0) > 0;
+  // singing needs a microphone and a voice: it never blocks the path
+  let idx = MAIN.findIndex((x) => x.id === lessonId) - 1;
+  while (idx >= 0 && MAIN[idx].cfg.kind === 'sing') idx--;
+  if (idx < 0) return true;
+  return (lessons[MAIN[idx].id]?.stars ?? 0) > 0;
 }
 
 /** Main-path lessons up to and including a checkpoint (to mark as passed when the checkpoint is passed). */
@@ -530,7 +534,7 @@ export const KIND_META: Record<ExerciseKind, { icon: string; ru: string; en: str
   rhythmDictation: { icon: '🎼', ru: 'Ритм на слух', en: 'Rhythm dictation', descRu: 'Запиши ритм нотами', descEn: 'Write the rhythm in notes' },
   bass: { icon: '🎻', ru: 'Бас', en: 'Bass line', descRu: 'Запиши басовую линию', descEn: 'Write the bass line' },
   cadence: { icon: '🔚', ru: 'Каденции', en: 'Cadences', descRu: 'Как заканчивается фраза', descEn: 'How a phrase ends' },
-  function: { icon: '⚖️', ru: 'Функции T S D', en: 'Functions T S D', descRu: 'Роль аккорда в тональности', descEn: 'The role of a chord in a key' },
+  function: { icon: '⚖️', ru: 'Функции T\u00a0S\u00a0D', en: 'Functions T S D', descRu: 'Роль аккорда в тональности', descEn: 'The role of a chord in a key' },
   tonicFind: { icon: '🏠', ru: 'Найди тонику', en: 'Find the tonic', descRu: 'Где «дом» у мелодии', descEn: 'Where the melody is at home' },
   intervalInKey: { icon: '📏', ru: 'Интервалы в тональности', en: 'Intervals in a key', descRu: 'Интервал от тоники', descEn: 'Interval from the tonic' },
   modulation: { icon: '🔀', ru: 'Модуляции', en: 'Modulation', descRu: 'Смена тональности', descEn: 'Key changes' },

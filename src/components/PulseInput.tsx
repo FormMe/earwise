@@ -24,7 +24,8 @@ export function PulseInput({ pulse, done, onResult }: Props) {
     audio.stopAll();
   }, []);
 
-  const go = () => {
+  const go = async () => {
+    await audio.ready();
     taps.current = [];
     setHits(null);
     const ctx = audio.ensure();
@@ -39,7 +40,7 @@ export function PulseInput({ pulse, done, onResult }: Props) {
         .map((b) => raw.reduce((best, x) => (Math.abs(x - b) < Math.abs(best - b) ? x : best), Infinity) - b)
         .filter((e) => Math.abs(e) < 0.35)
         .sort((a, b) => a - b);
-      const off = errs.length > 2 ? errs[Math.floor(errs.length / 2)] : 0;
+      const off = errs.length > 2 ? Math.max(-0.12, Math.min(0.12, errs[Math.floor(errs.length / 2)])) : 0;
       const res = scoreTaps(pulse.beats, raw.map((x) => x - off), 0.09);
       setHits(res.hits.filter(Boolean).length);
       setPhase('result');
@@ -67,6 +68,11 @@ export function PulseInput({ pulse, done, onResult }: Props) {
 
   return (
     <div className="rhythm">
+      <div className="beats" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="beat-dot" />
+        ))}
+      </div>
       {phase === 'ready' && !done && (
         <button className="btn primary big" onClick={go}>
           ▶ {t('rhythmStart')}

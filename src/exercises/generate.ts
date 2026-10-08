@@ -196,7 +196,7 @@ function genChord(cfg: Extract<ExerciseConfig, { kind: 'chord' }>, ctx: GenCtx):
     kind: 'chord',
     prompt: tr(ctx, 'Какой это аккорд?', 'What chord quality is this?'),
     stimulus: chordEvents(notes, ctx.tempo),
-    alt: [{ label: tr(ctx, 'Арпеджио', 'Arpeggio'), events: chordEvents(notes, ctx.tempo, true) }],
+    alt: [{ label: tr(ctx, 'По одной ноте', 'Note by note'), events: chordEvents(notes, ctx.tempo, true) }],
     input: 'choice',
     choices,
     answer: [id],
@@ -859,13 +859,13 @@ function genRhythmDictation(cfg: Extract<ExerciseConfig, { kind: 'rhythmDictatio
     return ev;
   };
   const pool = cellsForLevel(cfg.level, compound);
-  const sig = meter === 6 ? '6/8' : `${meter}/4`;
+  const sig = meter === 6 ? '6/8' : meter === 3 ? '3/4' : '';
   return {
     kind: 'rhythmDictation',
     prompt: tr(
       ctx,
-      `Запиши ритм (${sig}): ${bars} ${ruPlural(bars, 'такт', 'такта', 'тактов')}, после отсчёта`,
-      `Write the rhythm (${sig}): ${bars} bar(s) after the count-in`,
+      `Запиши ритм${sig ? ` (${sig})` : ''}: ${bars * perBar} ${ruPlural(bars * perBar, 'доля', 'доли', 'долей')} после отсчёта`,
+      `Write the rhythm${sig ? ` (${sig})` : ''}: ${bars * perBar} beats after the count-in`,
     ),
     stimulus: mk(cells),
     alt: [{ label: tr(ctx, 'Медленно', 'Slowly'), events: mk(cells, 0.7) }],

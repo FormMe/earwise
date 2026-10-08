@@ -43,6 +43,10 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
+  // a fresh start (after onboarding) opens the path from the top
+  useEffect(() => {
+    if (onboarded) window.scrollTo(0, 0);
+  }, [onboarded]);
   // unlock audio on the first interaction anywhere (iOS)
   useEffect(() => {
     const h = () => audio.unlock();

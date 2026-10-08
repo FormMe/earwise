@@ -11,6 +11,7 @@ export function Onboarding() {
   const setSettings = useStore((s) => s.setSettings);
   const setOnboarded = useStore((s) => s.setOnboarded);
   const lang = useStore((s) => s.settings.lang);
+  const voice = useStore((s) => s.settings.voice);
   const [goal, setGoal] = useState(50);
   const startSession = useNav((s) => s.startSession);
 
@@ -67,6 +68,15 @@ export function Onboarding() {
             </small>
           </button>
         ))}
+      </div>
+      <h3>{t('voice')}</h3>
+      <div className="seg">
+        <button className={voice === 'low' ? 'on' : ''} onClick={() => setSettings({ voice: 'low' })}>
+          {t('voiceLow')}
+        </button>
+        <button className={voice === 'high' ? 'on' : ''} onClick={() => setSettings({ voice: 'high' })}>
+          {t('voiceHigh')}
+        </button>
       </div>
       <p className="muted small center">🎧 {t('headphones')}</p>
       <button className="btn primary big block" onClick={go}>

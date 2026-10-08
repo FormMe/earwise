@@ -119,7 +119,7 @@ export function survivalSpec(lessons: Lessons, lang: Lang, unlockAll = false): S
 }
 
 /** Daily: half overdue review, the rest from the current frontier — same order for everyone on the same progress. */
-export function dailySpec(lessons: Lessons, items: Items, lang: Lang, unlockAll = false): SessionSpec {
+export function dailySpec(lessons: Lessons, items: Items, lang: Lang, unlockAll = false, dailyDoneDate: string | null = null): SessionSpec {
   const seed = hashString('earwise-daily-' + todayStr());
   const rng = mulberry32(seed);
   const open = ALL_LESSONS.filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind) && isUnlocked(l.id, lessons, unlockAll));
@@ -134,7 +134,9 @@ export function dailySpec(lessons: Lessons, items: Items, lang: Lang, unlockAll 
   }
   const n = cfgs.length;
   for (let i = 0; cfgs.length < 10 && n; i++) cfgs.push(cfgs[i % n]);
-  return { mode: 'daily', title: lang === 'ru' ? 'Испытание дня' : 'Daily challenge', configs: shuffle(rng, cfgs), count: 10, seed, xpMult: 2, randomTimbre: true };
+  // double XP only on the first run of the day
+  const done = dailyDoneDate === todayStr();
+  return { mode: 'daily', title: lang === 'ru' ? 'Испытание дня' : 'Daily challenge', configs: shuffle(rng, cfgs), count: 10, seed, xpMult: done ? 1 : 2, randomTimbre: true };
 }
 
 /** Review: lessons with the most overdue or weak items. */
@@ -167,7 +169,19 @@ export function placementSpec(lang: Lang): SessionSpec {
   const blocks = UNITS.filter((u) => !u.optional && u.id !== 'u1')
     .map((u) => ({ unitId: u.id, configs: u.lessons.filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind) && guessProof(l.cfg)).map((l) => l.cfg) }))
     .filter((b) => b.configs.length);
-  return { mode: 'placement', title: lang === 'ru' ? 'Входной тест' : 'Placement test', configs: blocks[0].configs, count: null, blocks, randomTimbre: false };
+  return {
+    mode: 'placement',
+    title: lang === 'ru' ? 'Входной тест' : 'Placement test',
+    configs: blocks[0].configs,
+    count: null,
+    blocks,
+    randomTimbre: false,
+    intro: true,
+    introText: {
+      ru: 'Тест идёт по разделам программы, по 8 вопросов. Раздел засчитывается при 7 верных из 8. Если не знаешь — честно жми «Не знаю», а когда станет совсем незнакомо, нажми «закончить тест»: засчитанное сохранится. Угадывать не нужно — так ты быстрее начнёшь с правильного места.',
+      en: 'The test goes unit by unit, 8 questions each; 7 of 8 credits the unit. Tap "Don\'t know" instead of guessing, and finish the test when it gets unfamiliar — credited units are kept.',
+    },
+  };
 }
 
 /** Practise one item intensively inside its natural exercise. */

@@ -43,8 +43,8 @@ export function ArcadeScreen() {
             <b>{highs.survival ?? 0}</b>
           </div>
         </button>
-        <button className={`arcade-card daily ${dailyDone ? 'done' : ''}`} onClick={() => go(dailySpec(lessons, items, lang, unlockAll))}>
-          <div className="ac-icon">📆</div>
+        <button className={`arcade-card daily ${dailyDone ? 'done' : ''}`} onClick={() => go(dailySpec(lessons, items, lang, unlockAll, useStore.getState().dailyDone))}>
+          <div className="ac-icon">🎯</div>
           <div className="ac-body">
             <h2>{t('daily')}</h2>
             <p>{dailyDone ? t('dailyDone') : t('dailyDesc')}</p>

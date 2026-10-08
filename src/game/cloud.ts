@@ -17,25 +17,10 @@ interface Host {
   use(name: string): Promise<unknown>;
 }
 
-const KEYS = ['settings', 'onboarded', 'xp', 'days', 'streak', 'freezes', 'lessons', 'items', 'achievements', 'highs', 'totals', 'dailyDone'] as const;
-const STAMP = 'earwise-updated-at';
+const KEYS = ['settings', 'onboarded', 'xp', 'days', 'streak', 'freezes', 'lessons', 'items', 'achievements', 'highs', 'totals', 'dailyDone', 'resetGen'] as const;
 /** bump together with the store's persist version when lesson ids change */
 const SCHEMA = 2;
 
-function readStamp() {
-  try {
-    return Number(localStorage.getItem(STAMP) ?? 0);
-  } catch {
-    return 0;
-  }
-}
-function writeStamp(v: number) {
-  try {
-    localStorage.setItem(STAMP, String(v));
-  } catch {
-    /* storage unavailable */
-  }
-}
 
 function snapshot() {
   const s = useStore.getState() as unknown as Record<string, unknown>;
@@ -44,7 +29,62 @@ function snapshot() {
   return out;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type S = Record<string, any>;
+
+const maxMap = (a: Record<string, number> = {}, b: Record<string, number> = {}) => {
+  const out = { ...a };
+  for (const [k, v] of Object.entries(b)) out[k] = Math.max(out[k] ?? 0, v);
+  return out;
+};
+
+/**
+ * Merge two progress snapshots (this device + cloud) without losing anything learned on either:
+ * per-item the latest answer wins, lessons keep the best result, counters keep the maximum.
+ * A newer "reset progress" on either side wins outright.
+ */
+export function mergeState(local: S, remote: S): S {
+  if (!remote || !Object.keys(remote).length) return local;
+  const lg = local.resetGen ?? 0;
+  const rg = remote.resetGen ?? 0;
+  if (rg > lg) return { ...remote, settings: { ...remote.settings, ...local.settings } };
+  if (lg > rg) return local;
+  const items = { ...(local.items ?? {}) };
+  for (const [k, v] of Object.entries<S>(remote.items ?? {})) if (!items[k] || (v.t ?? 0) > (items[k].t ?? 0)) items[k] = v;
+  const lessons = { ...(local.lessons ?? {}) };
+  for (const [k, v] of Object.entries<S>(remote.lessons ?? {})) {
+    const x = lessons[k];
+    lessons[k] = x
+      ? { stars: Math.max(x.stars, v.stars), best: Math.max(x.best, v.best), plays: Math.max(x.plays, v.plays), level: Math.max(x.level ?? 0, v.level ?? 0) || undefined }
+      : v;
+  }
+  const ls = local.streak ?? {};
+  const rs = remote.streak ?? {};
+  return {
+    ...local,
+    onboarded: local.onboarded || remote.onboarded,
+    xp: Math.max(local.xp ?? 0, remote.xp ?? 0),
+    items,
+    lessons,
+    days: maxMap(local.days, remote.days),
+    achievements: { ...(remote.achievements ?? {}), ...(local.achievements ?? {}) },
+    highs: maxMap(local.highs, remote.highs),
+    totals: { ...maxMap(local.totals, remote.totals), kinds: [...new Set([...(local.totals?.kinds ?? []), ...(remote.totals?.kinds ?? [])])] },
+    streak: (rs.last ?? '') > (ls.last ?? '') ? { ...rs, best: Math.max(rs.best ?? 0, ls.best ?? 0) } : { ...ls, best: Math.max(rs.best ?? 0, ls.best ?? 0) },
+    freezes: Math.max(local.freezes ?? 0, remote.freezes ?? 0),
+    dailyDone: (remote.dailyDone ?? '') > (local.dailyDone ?? '') ? remote.dailyDone : local.dailyDone,
+  };
+}
+
 export async function startCloudSync() {
+  try {
+    await sync();
+  } catch {
+    useCloud.setState({ status: 'error' });
+  }
+}
+
+async function sync() {
   const host = (window as unknown as { claude?: Host }).claude;
   if (!host?.use) return;
   const [db, user] = (await Promise.all([host.use('db'), host.use('user')])) as [
@@ -58,22 +98,24 @@ export async function startCloudSync() {
   const ref = db.doc(`data/users/${id}/progress`);
 
   let applying = false;
-  let localStamp = readStamp();
-  try {
+  const remoteState = async () => {
     const snap = await ref.get();
-    const remote = snap.exists ? (snap.data() as { state?: Record<string, unknown>; updatedAt?: number; v?: number }) : undefined;
-    if (remote?.state && (remote.v ?? 1) < SCHEMA) remote.state = { ...remote.state, lessons: {} };
-    const local = useStore.getState();
-    if (remote?.state && ((remote.updatedAt ?? 0) > localStamp || Number(remote.state.xp ?? 0) > local.xp)) {
-      applying = true;
-      const st = remote.state as Partial<ReturnType<typeof useStore.getState>>;
-      useStore.setState({ ...st, settings: { ...local.settings, ...(st.settings ?? {}) }, totals: { ...local.totals, ...(st.totals ?? {}) } });
-      applying = false;
-      localStamp = remote.updatedAt ?? Date.now();
-      writeStamp(localStamp);
-    } else if (local.onboarded || local.xp > 0) {
-      await ref.set({ state: snapshot(), updatedAt: localStamp || Date.now(), v: SCHEMA });
-    }
+    const remote = snap.exists ? (snap.data() as { state?: S; v?: number }) : undefined;
+    if (!remote?.state) return {};
+    // an older app version's lesson ids don't apply to this curriculum
+    return (remote.v ?? 1) < SCHEMA ? { ...remote.state, lessons: {} } : remote.state;
+  };
+  /** read the cloud, merge with this device, apply locally and write the result back */
+  const reconcile = async () => {
+    const merged = mergeState(snapshot(), await remoteState());
+    applying = true;
+    useStore.setState(merged as Partial<ReturnType<typeof useStore.getState>>);
+    applying = false;
+    if (merged.onboarded || merged.xp > 0) await ref.set({ state: snapshot(), updatedAt: Date.now(), v: SCHEMA });
+  };
+
+  try {
+    await reconcile();
     useCloud.setState({ status: 'ok' });
   } catch {
     useCloud.setState({ status: 'error' });
@@ -92,7 +134,7 @@ export async function startCloudSync() {
     }
     writing = true;
     try {
-      await ref.set({ state: snapshot(), updatedAt: readStamp(), v: SCHEMA });
+      await reconcile();
       useCloud.setState({ status: 'ok' });
     } catch {
       useCloud.setState({ status: 'error' });
@@ -109,14 +151,13 @@ export async function startCloudSync() {
   };
   useStore.subscribe(() => {
     if (applying) return;
-    writeStamp(Date.now());
     schedule();
   });
-  // save promptly when the app is hidden (switching apps, locking the phone)
+  // save promptly when the app is hidden; pick up other devices' progress when it comes back
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && timer) {
       clearTimeout(timer);
       void flush();
-    }
+    } else if (document.visibilityState === 'visible') void flush();
   });
 }

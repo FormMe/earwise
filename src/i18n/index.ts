@@ -99,7 +99,7 @@ const ru = {
   voice: 'Голос для пения',
   voiceLow: 'Низкий (муж.)',
   voiceHigh: 'Высокий (жен./детск.)',
-  goal: 'Цель на день (XP)',
+  goal: 'Цель на день',
   unlockAll: 'Открыть все уроки',
   reset: 'Сбросить прогресс',
   resetConfirm: 'Точно сбросить весь прогресс? Это нельзя отменить.',
@@ -170,6 +170,14 @@ const ru = {
   helpDo: 'Что ответить:',
   helpHonest: 'Если не уверен — жми «Не знаю», а не угадывай: так приложение поймёт, что повторить, и не засчитает случайный ответ.',
   gotIt: 'Понятно',
+  singSkip: 'Не получается — дальше',
+  noVoice: 'Не слышу голоса. Проверь, что микрофон разрешён, и спой погромче.',
+  needPct: 'Нужно',
+  youGot: 'у тебя',
+  reviewNote: 'Иногда будут вопросы из прошлых уроков (помечены ↻) — для повторения, на оценку урока они не влияют.',
+  glossary: 'Словарик',
+  legendNotes: 'ноты ритма (зелёные — попал)',
+  legendTaps: 'твои нажатия',
 };
 
 export type TKey = keyof typeof ru;
@@ -273,7 +281,7 @@ const en: Record<TKey, string> = {
   voice: 'Singing voice',
   voiceLow: 'Low (male)',
   voiceHigh: 'High (female/child)',
-  goal: 'Daily goal (XP)',
+  goal: 'Daily goal',
   unlockAll: 'Unlock all lessons',
   reset: 'Reset progress',
   resetConfirm: 'Really reset all progress? This cannot be undone.',
@@ -344,6 +352,14 @@ const en: Record<TKey, string> = {
   helpDo: 'You answer:',
   helpHonest: "Not sure? Tap “Don't know” instead of guessing — the app will know what to review and won't count a lucky guess.",
   gotIt: 'Got it',
+  singSkip: "Can't right now — skip",
+  noVoice: "I can't hear you. Check the microphone permission and sing a bit louder.",
+  needPct: 'Need',
+  youGot: 'you got',
+  reviewNote: "Some questions come from earlier lessons (marked ↻) for review; they don't affect this lesson's score.",
+  glossary: 'Glossary',
+  legendNotes: 'rhythm notes (green = hit)',
+  legendTaps: 'your taps',
 };
 
 const dicts = { ru, en };

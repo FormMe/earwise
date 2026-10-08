@@ -50,17 +50,19 @@ export function detectPitch(buf: Float32Array, sr: number, minF = 60, maxF = 110
 export class MicPitch {
   private stream: MediaStream | null = null;
   private analyser: AnalyserNode | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
   private buf = new Float32Array(2048);
 
   async start() {
     const ctx = audio.ensure();
+    this.stop();
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
-    const src = ctx.createMediaStreamSource(this.stream);
+    this.source = ctx.createMediaStreamSource(this.stream);
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 2048;
-    src.connect(this.analyser);
+    this.source.connect(this.analyser);
   }
 
   read() {
@@ -71,7 +73,9 @@ export class MicPitch {
 
   stop() {
     this.stream?.getTracks().forEach((t) => t.stop());
+    this.source?.disconnect();
     this.stream = null;
+    this.source = null;
     this.analyser = null;
   }
 }

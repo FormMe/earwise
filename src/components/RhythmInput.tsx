@@ -58,8 +58,9 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     [pattern, s16, beats],
   );
 
-  const listen = useCallback(() => {
+  const listen = useCallback(async () => {
     setPhase('listening');
+    await audio.ready();
     const { startAt, beat } = schedule(true);
     timers.current.push(window.setTimeout(() => {
       setPhase((p) => (p === 'listening' ? 'ready' : p));
@@ -86,7 +87,9 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
       return Math.abs(near - e) < 0.35 ? near - e : null;
     });
     const errs = rough.filter((x): x is number => x != null).sort((a, b) => a - b);
-    const offset = errs.length >= 2 ? errs[Math.floor(errs.length / 2)] : 0;
+    // forgive a steady device latency, but never a whole note's shift
+    const cap = Math.min(0.12, s16 * 0.6);
+    const offset = errs.length >= 2 ? Math.max(-cap, Math.min(cap, errs[Math.floor(errs.length / 2)])) : 0;
     const adj = raw.map((x) => x - offset);
     const tol = Math.max(0.085, s16 * 0.45);
     const res = scoreTaps(expected, adj, tol);
@@ -96,7 +99,8 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
     onResult(res.acc >= 0.8 && res.extra <= 1, res.acc);
   }, [expected, s16, onResult]);
 
-  const startTapping = () => {
+  const startTapping = async () => {
+    await audio.ready();
     tapsRef.current = [];
     setTaps([]);
     setPhase('countin');
@@ -162,6 +166,16 @@ export function RhythmInput({ pattern, bpm, done, onResult }: Props) {
         <button className={`tap-pad ${flash ? 'flash' : ''} ${phase === 'tapping' ? 'live' : ''}`} onPointerDown={(e) => (e.preventDefault(), tap(e.timeStamp))}>
           {phase === 'countin' ? (beat >= 0 && beat < 4 ? 4 - beat : '…') : t('rhythmTap')}
         </button>
+      )}
+      {phase === 'result' && (
+        <div className="tl-legend">
+          <span>
+            <i /> {t('legendNotes')}
+          </span>
+          <span>
+            <i className="tap" /> {t('legendTaps')}
+          </span>
+        </div>
       )}
       {phase === 'result' && (
         <p className="center muted">

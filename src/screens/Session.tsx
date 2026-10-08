@@ -16,7 +16,7 @@ import { Results } from './Results';
 import { RhythmGlyph } from '../components/RhythmGlyph';
 import { lessonById } from '../game/curriculum';
 import { focusSpec } from '../game/sessions';
-import { KIND_HELP } from '../game/help';
+import { GLOSSARY, KIND_HELP } from '../game/help';
 import { haptic } from '../components/haptics';
 
 interface Mistake {
@@ -78,6 +78,21 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const phaseRef = useRef<'answer' | 'feedback' | 'done'>('answer');
   const prevKey = useRef<string | undefined>(undefined);
   const nextTimer = useRef<number | null>(null);
+  /** sounds scheduled for later (autoplay, resolution) — cleared when moving on */
+  const soundTimers = useRef<number[]>([]);
+  const later = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      soundTimers.current = soundTimers.current.filter((x) => x !== id);
+      if (!finished.current) fn();
+    }, ms);
+    soundTimers.current.push(id);
+  };
+  const clearSoundTimers = () => {
+    soundTimers.current.forEach((id) => clearTimeout(id));
+    soundTimers.current = [];
+  };
+  /** a pending end of the session (so tapping "Next" can't skip it) */
+  const pendingEnd = useRef<null | { correct: number; total: number; xp: number; maxCombo: number }>(null);
   const finished = useRef(false);
 
   // per-session state that shapes question choice
@@ -87,6 +102,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
   // placement test progress
   const block = useRef({ i: 0, n: 0, ok: 0, dk: 0, fails: 0, placed: [] as string[] });
   const [showHelp, setShowHelp] = useState(false);
+  const fbRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [playsLeft, setPlaysLeft] = useState<number | null>(null);
   const [mastered, setMastered] = useState<number>(0);
 
@@ -180,7 +197,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       setIsCorrect(null);
       setPhase('answer');
       setKinds((k) => (k.includes(question.kind) ? k : [...k, question.kind]));
-      if (question.input !== 'rhythm' && question.input !== 'pulse' && !introRef.current) setTimeout(() => listen(question.stimulus), 250);
+      if (question.input !== 'rhythm' && question.input !== 'pulse' && !introRef.current) later(() => listen(question.stimulus), 250);
     },
     [listen, spec.replays],
   );
@@ -191,6 +208,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
     return () => {
       audio.stopAll();
       stopMic();
+      clearSoundTimers();
       if (nextTimer.current) clearTimeout(nextTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,6 +218,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
     (final?: { correct: number; total: number; xp: number; maxCombo: number }) => {
       if (finished.current) return;
       finished.current = true;
+      clearSoundTimers();
       if (nextTimer.current) clearTimeout(nextTimer.current);
       audio.stopAll();
       stopMic();
@@ -243,6 +262,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
       nextTimer.current = null;
     }
     if (finished.current) return;
+    clearSoundTimers();
+    if (pendingEnd.current) return finish(pendingEnd.current);
     const n = idx + 1;
     if (spec.count != null && total >= spec.count) return finish();
     if (spec.lives != null && lives <= 0) return finish();
@@ -259,11 +280,13 @@ export function Session({ spec }: { spec: SessionSpec }) {
       phaseRef.current = 'feedback';
       let newlyMastered = 0;
       if (q.input === 'sequence') {
-        q.answer.slice(given).forEach((a, i) => (newlyMastered += recordAnswer([q.itemKeys[i]], user[i + given] === a)));
+        // per-note memory for each slot; the lifetime answer count goes up once per question
+        q.answer.slice(given).forEach((a, i) => (newlyMastered += recordAnswer([q.itemKeys[i]], user[i + given] === a, false)));
+        recordAnswer([], ok);
       } else newlyMastered += recordAnswer(q.itemKeys, ok);
       if (newlyMastered) setMastered((m) => m + newlyMastered);
       if (ok) q.itemKeys.forEach((k) => (seen.current[k] = (seen.current[k] ?? 0) + 1));
-      else if (q.cfg && (q.input === 'choice' || q.input === 'keys') && spec.mode !== 'blitz' && spec.mode !== 'survival')
+      else if (q.cfg && (q.input === 'choice' || q.input === 'keys') && spec.mode !== 'blitz' && spec.mode !== 'survival' && !spec.blocks)
         retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at: Math.min(idx + 2 + Math.floor(Math.random() * 3), (spec.count ?? Infinity) - 1) });
       if (q.input === 'sing' && ok) recordSung();
 
@@ -285,7 +308,10 @@ export function Session({ spec }: { spec: SessionSpec }) {
       setPicked(user);
       setIsCorrect(ok);
       setPhase('feedback');
-      if (gained || newlyMastered) setXpPop({ v: gained + newlyMastered * 5, k: Date.now(), m: newlyMastered });
+      if (gained || newlyMastered) {
+        setXpPop({ v: gained + newlyMastered * 5, k: Date.now(), m: newlyMastered });
+        later(() => setXpPop(null), 1200);
+      }
       if (!ok) setMistakes((m) => [...m, { q, user }]);
       if (settings.sfx) audio.sfx(ok ? 'ok' : 'bad');
       if (settings.haptics) haptic(ok ? 15 : [30, 40, 30]);
@@ -301,7 +327,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       let wait = ok ? 650 : 0;
       if (q.afterAnswer) {
         const dur = Math.max(...q.afterAnswer.map((e) => e.t + e.d));
-        setTimeout(() => play(q.afterAnswer!), settings.sfx ? 350 : 150);
+        later(() => play(q.afterAnswer!), settings.sfx ? 350 : 150);
         wait = Math.max(wait, dur * 1000 + 600);
       }
       const arcade = spec.mode === 'blitz' || spec.mode === 'survival';
@@ -313,7 +339,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         // a unit is credited only for near-perfect answers; two "don't know"s end it at once
         if (b.n >= BLOCK || b.dk >= 2 || b.n - b.ok > BLOCK - BLOCK_PASS) {
           const passedBlock = b.ok >= BLOCK_PASS;
-          if (passedBlock) {
+          if (passedBlock && spec.blocks[b.i]) {
             // unit 1 (2-option drills) isn't tested: it is credited together with unit 2
             if (spec.blocks[b.i].unitId === 'u2') b.placed.push('u1');
             b.placed.push(spec.blocks[b.i].unitId);
@@ -324,17 +350,20 @@ export function Session({ spec }: { spec: SessionSpec }) {
           b.dk = 0;
           // one weak unit doesn't end the test; the second one does
           if (b.fails >= 2 || b.i >= spec.blocks.length) {
-            nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), 1200);
+            pendingEnd.current = { correct: nc, total: nt, xp: nxp, maxCombo: nmax };
+            nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), 1200);
             return;
           }
         }
       }
       if (spec.lives != null && nlives <= 0) {
-        nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), 1400);
+        pendingEnd.current = { correct: nc, total: nt, xp: nxp, maxCombo: nmax };
+            nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), 1400);
         return;
       }
       if (spec.count != null && nt >= spec.count && ok && settings.autoNext) {
-        nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), wait + 200);
+        pendingEnd.current = { correct: nc, total: nt, xp: nxp, maxCombo: nmax };
+            nextTimer.current = window.setTimeout(() => finish(pendingEnd.current!), wait + 200);
         return;
       }
       if ((ok && (settings.autoNext || arcade)) || (!ok && spec.mode === 'blitz')) {
@@ -382,7 +411,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
   // keyboard shortcuts for desktop
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!q || phase === 'done' || q.input === 'rhythm' || q.input === 'pulse') return;
+      if (!q || phase === 'done' || q.input === 'rhythm' || q.input === 'pulse' || showIntro || showHelp || askQuit || e.repeat) return;
+      // a focused button would also react to Enter/Space and answer the next question
+      if ((e.key === 'Enter' || e.code === 'Space') && (e.target as HTMLElement)?.closest?.('button')) e.preventDefault();
       if (e.code === 'Space' || e.key === 'r') {
         e.preventDefault();
         listen(q.stimulus);
@@ -391,7 +422,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
         else if (q.input === 'sequence' && picked.length === q.answer.length) judge(picked);
       } else if (e.key === 'Backspace') undo();
       else if (/^[1-9]$/.test(e.key) && q.input !== 'sing') {
-        const c = q.choices[Number(e.key) - 1];
+        e.preventDefault();
+        const st = q.stages?.find((x) => picked.length < x.until);
+        const c = (st ? st.choices : q.choices)[Number(e.key) - 1];
         if (c) onChoice(c.id);
       }
     };
@@ -415,6 +448,22 @@ export function Session({ spec }: { spec: SessionSpec }) {
     if (!isCorrect && picked[0] != null) m[lo + Number(picked[0])] = 'bad';
     return m;
   }, [q, phase, isCorrect, picked]);
+
+  // keep the answer visible above the feedback sheet
+  useEffect(() => {
+    const root = rootRef.current;
+    const el = fbRef.current;
+    if (!root) return;
+    if (!el) {
+      root.style.setProperty('--fb-h', '0px');
+      return;
+    }
+    const ro = new ResizeObserver(() => root.style.setProperty('--fb-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    root.style.setProperty('--fb-h', `${el.offsetHeight}px`);
+    requestAnimationFrame(() => root.querySelector('.slots, .choices, .keys-wrap')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    return () => ro.disconnect();
+  }, [phase]);
 
   if (phase === 'done' && outcome)
     return (
@@ -472,7 +521,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
         </header>
         <main className="intro-body">
           <h2 className="prompt">{spec.title}</h2>
-          {intro && <p className="intro-text">{intro}</p>}
+          {(intro || spec.introText) && <p className="intro-text">{intro ?? spec.introText![settings.lang]}</p>}
+          {!!spec.mix && <p className="muted small">↻ {t('reviewNote')}</p>}
           {listable.length > 0 && (
             <>
               <p className="muted small center">🎧 {t('introListen')}</p>
@@ -500,7 +550,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
             audio.stopAll();
             setShowIntro(false);
             introRef.current = false;
-            if (q.input !== 'rhythm') setTimeout(() => play(q.stimulus), 250);
+            if (q.input !== 'rhythm' && q.input !== 'pulse') later(() => listen(q.stimulus), 250);
           }}
         >
           {t('introStart')}
@@ -515,7 +565,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const given = q.given ?? 0;
 
   return (
-    <div className="session">
+    <div className="session" ref={rootRef}>
       <header className="session-top">
         <button className="icon-btn" onClick={quit} aria-label={t('quit')}>
           ✕
@@ -583,6 +633,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
           </div>
         )}
 
+        <div className="answer-zone">
         {q.input === 'choice' && (
           <div className={`choices n${q.choices.length}`}>
             {q.choices.map((c, i) => {
@@ -626,13 +677,13 @@ export function Session({ spec }: { spec: SessionSpec }) {
               {palette.map((c) => (
                 <button key={c.id} className={`choice small ${c.glyph ? 'glyph' : ''}`} onClick={() => onChoice(c.id)} title={c.glyph ? c.sub : undefined}>
                   <span className="choice-label">{c.glyph ? <RhythmGlyph id={c.glyph} size={38} /> : c.label}</span>
-                  {c.sub && !c.glyph && <span className="choice-sub">{c.sub}</span>}
+                  {c.sub && <span className="choice-sub">{c.sub}</span>}
                 </button>
               ))}
             </div>
             {phase === 'answer' && (
               <div className="row center gap">
-                <button className="btn ghost" onClick={undo} disabled={picked.length <= given}>
+                <button className="btn ghost" onClick={undo} disabled={picked.length <= given} aria-label={settings.lang === 'ru' ? 'Стереть' : 'Undo'}>
                   ⌫
                 </button>
                 <button className="btn primary" disabled={picked.length !== q.answer.length} onClick={() => judge(picked)}>
@@ -668,7 +719,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         {q.input === 'rhythm' && q.rhythm && (
           <RhythmInput key={idx} pattern={q.rhythm.pattern} bpm={q.rhythm.bpm} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
         )}
-        {phase === 'answer' && q.input !== 'pulse' && q.input !== 'rhythm' && (
+        {phase === 'answer' && q.input !== 'sing' && (
           <div className="dk-row">
             <button className="btn ghost small" onClick={() => judge(['?'], false, true)}>
               🤷 {t('dontKnow')}
@@ -680,6 +731,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
             )}
           </div>
         )}
+        </div>
       </main>
 
       {showHelp && (
@@ -694,6 +746,17 @@ export function Session({ spec }: { spec: SessionSpec }) {
               <b>👉 {t('helpDo')}</b> {KIND_HELP[q.kind][settings.lang][1]}
             </p>
             <p className="muted small">{t('helpHonest')}</p>
+            <details className="small">
+              <summary>📖 {t('glossary')}</summary>
+              <dl className="gloss">
+                {GLOSSARY.map((g) => (
+                  <div key={g.ru[0]}>
+                    <dt>{g[settings.lang][0]}</dt>
+                    <dd>{g[settings.lang][1]}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
             <div className="row gap wrap">
               <button className="chip" onClick={() => play(q.stimulus)}>
                 ▶ {t('introExample')}
@@ -719,11 +782,11 @@ export function Session({ spec }: { spec: SessionSpec }) {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <p>{t('quitConfirm')}</p>
             <div className="row gap">
-              <button className="btn ghost" onClick={() => setAskQuit(false)}>
-                {t('continue')}
-              </button>
-              <button className="btn danger" onClick={back}>
+              <button className="btn danger-ghost" onClick={back}>
                 {t('quit')}
+              </button>
+              <button className="btn primary" onClick={() => setAskQuit(false)}>
+                {t('continue')}
               </button>
             </div>
           </div>
@@ -731,15 +794,22 @@ export function Session({ spec }: { spec: SessionSpec }) {
       )}
 
       {phase === 'feedback' && (
-        <div className={`feedback ${isCorrect ? 'ok' : 'bad'}`}>
-          <div className="feedback-inner">
+        <div className={`feedback ${isCorrect ? 'ok' : picked[0] === '?' ? 'dk' : 'bad'}`}>
+          <div className="feedback-inner" ref={fbRef}>
             <div className="fb-title">{isCorrect ? `✓ ${t('correct')}` : picked[0] === '?' ? `🤷 ${t('dkTitle')}` : `✗ ${t('wrong')}`}</div>
             {!isCorrect && q.answerLabel && (
               <div className="fb-answer">
                 {t('answerWas')} <b>{q.answerLabel}</b>
               </div>
             )}
-            {isCorrect && q.answerLabel && q.input !== 'choice' && <div className="fb-answer">{q.answerLabel}</div>}
+            {isCorrect && q.answerLabel && q.input !== 'choice' && !q.choices.some((c) => c.glyph) && <div className="fb-answer">{q.answerLabel}</div>}
+            {!isCorrect && q.choices.some((c) => c.glyph) && (
+              <div className="fb-glyphs">
+                {q.answer.filter((a) => q.choices.find((c) => c.id === a)?.glyph).map((a, i) => (
+                  <RhythmGlyph key={i} id={a} size={30} />
+                ))}
+              </div>
+            )}
             {q.explain && <div className="fb-explain">{q.explain}</div>}
             {!isCorrect && q.input === 'sequence' && q.renderSequence && picked[0] !== '?' && (
               <div className="row gap">
@@ -752,7 +822,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
               </div>
             )}
             {!isCorrect && (q.input === 'choice' || q.input === 'sequence' || q.input === 'keys') && <div className="fb-hint">{t('compare')}</div>}
-            <button className={`btn big ${isCorrect ? 'success' : 'danger'}`} onClick={advance}>
+            <button className={`btn big ${isCorrect ? 'success' : picked[0] === '?' ? 'primary' : 'danger'}`} onClick={advance}>
               {t('next')}
             </button>
           </div>

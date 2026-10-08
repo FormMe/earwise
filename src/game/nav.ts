@@ -36,6 +36,8 @@ export interface SessionSpec {
   blocks?: { unitId: string; configs: ExerciseConfig[] }[];
   /** item key to practise intensively */
   focus?: string;
+  /** intro text for sessions that aren't a single lesson (placement test) */
+  introText?: { ru: string; en: string };
 }
 
 type Screen = { name: 'tabs' } | { name: 'session'; spec: SessionSpec; key: number } | { name: 'reference' };

@@ -6,15 +6,30 @@ import { useT } from '../i18n';
 
 export const sharedMic = new MicPitch();
 let micOn = false;
+let micP: Promise<void> | null = null;
+let gen = 0;
 
-export async function ensureMic() {
-  if (!micOn) {
-    await sharedMic.start();
-    micOn = true;
-  }
+/** Start the mic once; a double tap or leaving mid-prompt never leaves a stream running. */
+export function ensureMic() {
+  const g = gen;
+  return (micP ??= sharedMic
+    .start()
+    .then(() => {
+      if (g !== gen) {
+        sharedMic.stop();
+        throw new Error('cancelled');
+      }
+      micOn = true;
+    })
+    .catch((e) => {
+      micP = null;
+      throw e;
+    }));
 }
 export function stopMic() {
-  if (micOn) sharedMic.stop();
+  gen++;
+  micP = null;
+  sharedMic.stop();
   micOn = false;
 }
 
@@ -35,6 +50,8 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
   const t = useT();
   const { naming, lang } = useStore((s) => s.settings);
   const [status, setStatus] = useState<'idle' | 'on' | 'denied'>(micOn ? 'on' : 'idle');
+  const [silent, setSilent] = useState(false);
+  const lastVoice = useRef(performance.now());
   const [cents, setCents] = useState<number | null>(null);
   const [heard, setHeard] = useState<number | null>(null);
   const [hold, setHold] = useState(0);
@@ -58,7 +75,8 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
   };
 
   useEffect(() => {
-    if (busy) quietUntil.current = performance.now() + 450;
+    // ignore the mic while sound plays and for its reverb tail afterwards
+    quietUntil.current = performance.now() + (busy ? 1e9 : 700);
   }, [busy]);
 
   useEffect(() => {
@@ -75,6 +93,10 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
         return;
       }
       const r = sharedMic.read();
+      if (r && r.clarity >= 0.8) {
+        lastVoice.current = now;
+        setSilent(false);
+      } else if (now - Math.max(lastVoice.current, quietUntil.current) > 8000) setSilent(true);
       if (!r || r.clarity < 0.8) {
         hist.current = [];
         holdStart.current = null;
@@ -143,7 +165,7 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
       <div className="sing">
         <p className="muted">{t('micDenied')}</p>
         <button className="btn ghost" onClick={() => finish(false)}>
-          {t('skip')}
+          {t('singSkip')}
         </button>
       </div>
     );
@@ -172,12 +194,13 @@ export function SingInput({ targets, sequential, targetLabel, busy, done, onResu
           ))}
         </div>
       )}
+      {silent && !done && <p className="muted small center">🎙️ {t('noVoice')}</p>}
       <div className="hold-bar">
         <div style={{ width: `${hold * 100}%` }} />
       </div>
       {!done && (
         <button className="btn ghost small" onClick={() => finish(false)}>
-          {t('skip')}
+          {t('singSkip')}
         </button>
       )}
     </div>
