@@ -31,6 +31,7 @@ export function SettingsScreen() {
   const s = useStore((x) => x.settings);
   const setSettings = useStore((x) => x.setSettings);
   const reset = useStore((x) => x.resetProgress);
+  const [askReset, setAskReset] = useState(false);
   const [canInstall, setCanInstall] = useState(!!deferredPrompt);
   useEffect(() => {
     const h = () => setCanInstall(true);
@@ -158,14 +159,29 @@ export function SettingsScreen() {
       </div>
       <div className="card">
         <p className="muted small">{t('about')}</p>
-        <button
-          className="btn danger-ghost"
-          onClick={() => {
-            if (confirm(t('resetConfirm'))) reset();
-          }}
-        >
-          {t('reset')}
-        </button>
+        {askReset ? (
+          <div className="reset-confirm">
+            <p className="small">{t('resetConfirm')}</p>
+            <div className="row gap">
+              <button className="btn ghost" onClick={() => setAskReset(false)}>
+                ✕
+              </button>
+              <button
+                className="btn danger"
+                onClick={() => {
+                  reset();
+                  setAskReset(false);
+                }}
+              >
+                {t('reset')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn danger-ghost" onClick={() => setAskReset(true)}>
+            {t('reset')}
+          </button>
+        )}
       </div>
     </div>
   );

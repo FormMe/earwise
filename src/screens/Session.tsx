@@ -47,6 +47,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const [lives, setLives] = useState(spec.lives ?? 0);
   const [outcome, setOutcome] = useState<FinishOutcome | null>(null);
   const [kinds, setKinds] = useState<string[]>([]);
+  const [askQuit, setAskQuit] = useState(false);
   const playToken = useRef(0);
   const prevKey = useRef<string | undefined>(undefined);
   const nextTimer = useRef<number | null>(null);
@@ -276,7 +277,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
   const quit = () => {
     if (spec.mode === 'practice' && total > 0) return finish();
-    if (total === 0 || confirm(t('quitConfirm'))) back();
+    if (total === 0) back();
+    else setAskQuit(true);
   };
 
   const restart = () => startSession(spec);
@@ -430,6 +432,22 @@ export function Session({ spec }: { spec: SessionSpec }) {
           <RhythmInput key={idx} pattern={q.rhythm.pattern} bpm={q.rhythm.bpm} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
         )}
       </main>
+
+      {askQuit && (
+        <div className="modal-bg" onClick={() => setAskQuit(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <p>{t('quitConfirm')}</p>
+            <div className="row gap">
+              <button className="btn ghost" onClick={() => setAskQuit(false)}>
+                {t('continue')}
+              </button>
+              <button className="btn danger" onClick={back}>
+                {t('quit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {phase === 'feedback' && (
         <div className={`feedback ${isCorrect ? 'ok' : 'bad'}`}>

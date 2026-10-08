@@ -1845,3 +1845,36 @@ input[type='range'] {
 .free-piano .pk.white span {
   font-size: 10px;
 }
+
+.modal-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #0009;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.modal {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 20px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.modal p {
+  margin: 0;
+  font-weight: 700;
+}
+.modal .row > *,
+.reset-confirm .row > * {
+  flex: 1;
+}
+.reset-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
