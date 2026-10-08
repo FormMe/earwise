@@ -23,6 +23,11 @@ const PREFIX_KIND: Record<string, keyof typeof KIND_META> = {
   rdict: 'rhythmDictation',
   bass: 'bass',
   cad: 'cadence',
+  fn: 'function',
+  tonic: 'tonicFind',
+  iik: 'intervalInKey',
+  mod: 'modulation',
+  pulse: 'pulse',
 };
 
 export const kindOfKey = (key: string) => PREFIX_KIND[key.split(':')[0]];
@@ -77,6 +82,18 @@ export function labelForKey(key: string, lang: Lang, naming: NoteNaming): string
       }
       case 'cad':
         return `${ru ? 'Каденция' : 'Cadence'} ${a}`;
+      case 'fn':
+        return `${ru ? 'Функция' : 'Function'}: ${a}`;
+      case 'tonic':
+        return ru ? 'Найти тонику' : 'Find the tonic';
+      case 'iik': {
+        const i = intervalBySemis(Number(a));
+        return `${ru ? i.ru : i.en} ${ru ? 'от тоники' : 'from tonic'}`;
+      }
+      case 'mod':
+        return `${ru ? 'Модуляция' : 'Modulation'}: ${a}`;
+      case 'pulse':
+        return ru ? 'Пульс' : 'Pulse';
     }
   } catch {
     /* unknown */

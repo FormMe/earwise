@@ -9,20 +9,21 @@ import { generateRhythm } from '../theory/rhythm';
 import { DEGREES, degreeById, degreeBySemis, MAJOR, NAT_MINOR, scaleById, SOLF_RU } from '../theory/scales';
 import type { AccompStyle, CadenceType, Choice, Dir, ExerciseConfig, GenCtx, Question } from './types';
 import { cellsForLevel, cellsToDurations, generateBeatRhythm } from '../theory/rhythmCells';
+import { genFullDictation, genFunction, genIntervalInKey, genModulation, genPulse, genTonicFind, genTwoVoice } from './generate2';
 
-const tr = (ctx: GenCtx, ru: string, en: string) => (ctx.lang === 'ru' ? ru : en);
+export const tr = (ctx: GenCtx, ru: string, en: string) => (ctx.lang === 'ru' ? ru : en);
 /** Russian plural: 1 нота, 2 ноты, 5 нот */
-const ruPlural = (n: number, one: string, few: string, many: string) =>
+export const ruPlural = (n: number, one: string, few: string, many: string) =>
   n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many;
 
-function pickKey<T>(ctx: GenCtx, items: T[], key: (t: T) => string): T {
+export function pickKey<T>(ctx: GenCtx, items: T[], key: (t: T) => string): T {
   return weightedPick(ctx.rng, items, (t) => {
     const k = key(t);
     return ctx.weight(k) * (k === ctx.prevKey && items.length > 1 ? 0.25 : 1);
   });
 }
 
-const solf = (ctx: GenCtx, s: string) => (ctx.lang === 'ru' ? SOLF_RU[s] : s.toLowerCase());
+export const solf = (ctx: GenCtx, s: string) => (ctx.lang === 'ru' ? SOLF_RU[s] : s.toLowerCase());
 
 export function generate(cfg: ExerciseConfig, ctx: GenCtx): Question {
   switch (cfg.kind) {
@@ -54,6 +55,20 @@ export function generate(cfg: ExerciseConfig, ctx: GenCtx): Question {
       return genBass(cfg, ctx);
     case 'cadence':
       return genCadence(cfg, ctx);
+    case 'function':
+      return genFunction(cfg, ctx);
+    case 'tonicFind':
+      return genTonicFind(cfg, ctx);
+    case 'intervalInKey':
+      return genIntervalInKey(cfg, ctx);
+    case 'modulation':
+      return genModulation(cfg, ctx);
+    case 'twoVoice':
+      return genTwoVoice(cfg, ctx);
+    case 'fullDictation':
+      return genFullDictation(cfg, ctx);
+    case 'pulse':
+      return genPulse(cfg, ctx);
   }
 }
 
@@ -148,7 +163,7 @@ function genInterval(cfg: Extract<ExerciseConfig, { kind: 'interval' }>, ctx: Ge
 }
 
 // ───────────────────────── chords ─────────────────────────
-function chordEvents(notes: number[], tempo: number, arp = false): NoteEvent[] {
+export function chordEvents(notes: number[], tempo: number, arp = false): NoteEvent[] {
   if (arp)
     return notes.map((m, i) => ({ t: i * 0.38 * tempo, d: (notes.length - i) * 0.38 * tempo + 0.6, midi: m, vel: 0.7 }));
   return [{ t: 0, d: 1.8 * tempo, midi: notes, strum: 0.012 }];
@@ -273,7 +288,7 @@ function modeVampEvents(ctx: GenCtx, tonic: number, steps: number[]): NoteEvent[
 }
 
 // ───────────────────────── functional degrees ─────────────────────────
-function cadenceEvents(tonic: number, minor: boolean, tempo: number): { events: NoteEvent[]; end: number } {
+export function cadenceEvents(tonic: number, minor: boolean, tempo: number): { events: NoteEvent[]; end: number } {
   const chords = cadence(tonic, minor);
   const d = 0.55 * tempo;
   const events = chords.map((c, i) => ({ t: i * d, d: i === chords.length - 1 ? d * 1.6 : d * 0.98, midi: c, vel: 0.5 }));
@@ -303,13 +318,13 @@ export function resolution(semis: number, minor: boolean): number[] {
 }
 
 /** degree id + optional "," (octave below) */
-const melSemis = (id: string) => (id.endsWith(',') ? degreeById(id.slice(0, -1)).semis - 12 : degreeById(id).semis);
+export const melSemis = (id: string) => (id.endsWith(',') ? degreeById(id.slice(0, -1)).semis - 12 : degreeById(id).semis);
 
-function tonicFor(ctx: GenCtx) {
+export function tonicFor(ctx: GenCtx) {
   return ctx.fixedRoot ? 60 : randInt(ctx.rng, 55, 66);
 }
 
-function degreeLabel(ctx: GenCtx, id: string) {
+export function degreeLabel(ctx: GenCtx, id: string) {
   const low = id.endsWith(',');
   const d = degreeById(low ? id.slice(0, -1) : id);
   return { label: low ? `${d.label}̣` : d.label, sub: solf(ctx, d.solf) };
@@ -360,7 +375,7 @@ function genDegree(cfg: Extract<ExerciseConfig, { kind: 'degree' }>, ctx: GenCtx
 // ───────────────────────── melodic dictation ─────────────────────────
 
 /** Note values (in eighths) for a singable phrase: mostly quarters/eighths, long final note, filling whole 4/4 bars. */
-function phraseRhythm(ctx: GenCtx, n: number): number[] {
+export function phraseRhythm(ctx: GenCtx, n: number): number[] {
   const durs: number[] = [];
   for (let i = 0; i < n - 1; i++) {
     const r = ctx.rng();
@@ -722,6 +737,28 @@ function genSing(cfg: Extract<ExerciseConfig, { kind: 'sing' }>, ctx: GenCtx): Q
       sing: { targets: [target], target: lbl },
     };
   }
+  if (cfg.mode === 'sight') {
+    // sight-singing: degrees are shown, only the key is played
+    const set = cfg.set ?? ['1', '2', '3', '4', '5'];
+    const len = cfg.length ?? 4;
+    const tonic = randInt(ctx.rng, lo + 2, Math.max(lo + 2, hi - 9));
+    const mel = generateMelody(ctx.rng, { pool: set.map(melSemis), length: len, startOnTonic: true, endOnTonic: true, maxLeap: 5 });
+    const semisToId = new Map(set.map((id) => [melSemis(id), id]));
+    const ids = mel.map((x) => semisToId.get(x)!);
+    const targets = mel.map((x) => tonic + x);
+    const cad = cadenceEvents(tonic + 12 > 66 ? tonic : tonic + 12, !!cfg.minor, ctx.tempo);
+    return {
+      ...base,
+      itemKeys: ['sing:sight'],
+      prompt: tr(ctx, 'Спой с листа: ступени на экране', 'Sight-sing the degrees on screen'),
+      stimulus: [...cad.events, { t: cad.end, d: 1, midi: tonic, vel: 0.6 }],
+      alt: [{ label: tr(ctx, 'Подсказка', 'Hint'), events: targets.map((m, i) => ({ t: i * 0.6, d: 0.55, midi: m })) }],
+      answer: targets.map(String),
+      answerLabel: ids.map((id) => degreeLabel(ctx, id).label).join(' '),
+      score: ids.map((id) => `${degreeLabel(ctx, id).label}|${degreeLabel(ctx, id).sub}`),
+      sing: { targets, target: tr(ctx, 'с листа', 'sight'), sequential: true },
+    };
+  }
   if (cfg.mode === 'echo') {
     const set = cfg.set ?? ['1', '2', '3', '4', '5'];
     const len = cfg.length ?? 3;
@@ -776,35 +813,48 @@ function genRhythm(cfg: Extract<ExerciseConfig, { kind: 'rhythm' }>, ctx: GenCtx
 }
 
 function genRhythmDictation(cfg: Extract<ExerciseConfig, { kind: 'rhythmDictation' }>, ctx: GenCtx): Question {
-  const beats = 4 * (cfg.bars ?? 1);
-  const cells = generateBeatRhythm(ctx.rng, cfg.level, beats);
-  const bpm = Math.round([0, 72, 76, 70, 72][cfg.level] / ctx.tempo);
-  const mk = (ids: string[], speed = 1) => {
+  const meter = cfg.meter ?? 4;
+  const compound = meter === 6;
+  const perBar = meter === 6 ? 2 : meter;
+  const bars = cfg.bars ?? (meter === 4 ? 1 : 2);
+  const beats = perBar * bars;
+  const cells = generateBeatRhythm(ctx.rng, cfg.level, beats, compound);
+  const bpm = Math.round((compound ? 56 : [0, 72, 76, 70, 72][cfg.level]) / ctx.tempo);
+  const unit = compound ? 6 : 4;
+  const mk = (ids: string[], speed = 1, countIn = true) => {
     const beat = 60 / (bpm * speed);
     const ev: NoteEvent[] = [];
-    for (let i = 0; i < 4; i++) ev.push({ t: i * beat, d: 0.05, midi: 0, drum: 'hat', vel: i === 0 ? 0.6 : 0.4 });
-    const start = 4 * beat;
+    const ci = countIn ? perBar * (compound ? 1 : 1) : 0;
+    for (let i = 0; i < ci; i++) ev.push({ t: i * beat, d: 0.05, midi: 0, drum: 'hat', vel: i === 0 ? 0.6 : 0.4 });
+    const start = ci * beat;
     let t = 0;
     for (const d of cellsToDurations(ids)) {
-      if (d > 0) ev.push({ t: start + (t * beat) / 4, d: Math.min(0.3, ((d * beat) / 4) * 0.9), midi: 74, vel: 0.8 });
+      if (d > 0) ev.push({ t: start + (t * beat) / unit, d: Math.min(0.3, ((d * beat) / unit) * 0.9), midi: 74, vel: 0.8 });
       t += Math.abs(d);
     }
-    for (let i = 0; i < ids.length; i++) ev.push({ t: start + i * beat, d: 0.05, midi: 0, drum: 'hat', vel: 0.18 });
+    for (let i = 0; i < ids.length; i++) ev.push({ t: start + i * beat, d: 0.05, midi: 0, drum: 'hat', vel: i % perBar === 0 ? 0.3 : 0.15 });
     return ev;
   };
-  const pool = cellsForLevel(cfg.level);
+  const pool = cellsForLevel(cfg.level, compound);
+  const sig = meter === 6 ? '6/8' : `${meter}/4`;
   return {
     kind: 'rhythmDictation',
-    prompt: tr(ctx, `Запиши ритм: ${beats / 4} ${ruPlural(beats / 4, 'такт', 'такта', 'тактов')} (после 4 щелчков отсчёта)`, `Write the rhythm: ${beats / 4} bar(s) after a 4-click count-in`),
+    prompt: tr(
+      ctx,
+      `Запиши ритм (${sig}): ${bars} ${ruPlural(bars, 'такт', 'такта', 'тактов')}, после отсчёта`,
+      `Write the rhythm (${sig}): ${bars} bar(s) after the count-in`,
+    ),
     stimulus: mk(cells),
     alt: [{ label: tr(ctx, 'Медленно', 'Slowly'), events: mk(cells, 0.7) }],
     input: 'sequence',
-    choices: pool.map((c) => ({ id: c.id, label: '', glyph: c.id, sub: ctx.lang === 'ru' ? c.ru : c.en, audio: mk([c.id]).slice(4) .map((e) => ({ ...e, t: e.t - 4 * (60 / bpm) })) })),
+    choices: pool.map((c) => ({ id: c.id, label: '', glyph: c.id, sub: ctx.lang === 'ru' ? c.ru : c.en, audio: mk([c.id], 1, false) })),
     answer: cells,
     itemKeys: cells.map((c) => `rdict:${c}`),
     answerLabel: '',
     renderSequence: (ids) => mk(ids),
-    explain: tr(ctx, 'Считай «раз-и, два-и…» и представляй, где внутри доли звучат ноты', 'Count "1-and-2-and…" and place notes inside each beat'),
+    explain: compound
+      ? tr(ctx, 'В 6/8 две доли, каждая делится на три восьмые: «раз-и-а, два-и-а»', 'In 6/8 there are two beats, each split in three: "1-la-li, 2-la-li"')
+      : tr(ctx, 'Считай «раз-и, два-и…» и представляй, где внутри доли звучат ноты', 'Count "1-and-2-and…" and place notes inside each beat'),
   };
 }
 

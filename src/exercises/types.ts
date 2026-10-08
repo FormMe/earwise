@@ -24,9 +24,26 @@ export type ExerciseConfig =
   | { kind: 'bass'; set: string[]; length: number; minor?: boolean; inversions?: boolean }
   | { kind: 'cadence'; set: CadenceType[] }
   | { kind: 'noteName'; set: number[]; reference: boolean }
-  | { kind: 'sing'; mode: 'note' | 'degree' | 'interval' | 'echo'; set?: string[]; length?: number; minor?: boolean }
+  | { kind: 'sing'; mode: 'note' | 'degree' | 'interval' | 'echo' | 'sight'; set?: string[]; length?: number; minor?: boolean }
   | { kind: 'rhythm'; level: number; bars?: number }
-  | { kind: 'rhythmDictation'; level: number; bars?: number };
+  /** meter 3 = 3/4, 6 = 6/8 (compound) */
+  | { kind: 'rhythmDictation'; level: number; bars?: number; meter?: 4 | 3 | 6 }
+  /** T / S / D: which function does the chord have */
+  | { kind: 'function'; set: string[] }
+  /** find the tonic of a short phrase among 3 notes */
+  | { kind: 'tonicFind'; minor?: boolean }
+  /** two degrees after a cadence → name the interval */
+  | { kind: 'intervalInKey'; set: string[] }
+  /** did the music modulate, and where to */
+  | { kind: 'modulation'; set: ModTarget[] }
+  /** melody + bass, enter both lines */
+  | { kind: 'twoVoice'; set: string[]; length: number }
+  /** full dictation: pitches, then rhythm (beat cells) */
+  | { kind: 'fullDictation'; set: string[]; bars: number; level: number; minor?: boolean }
+  /** tap the beat along with music */
+  | { kind: 'pulse'; bpm?: number };
+
+export type ModTarget = 'none' | 'V' | 'IV' | 'vi' | 'i';
 
 export type ExerciseKind = ExerciseConfig['kind'];
 
@@ -39,7 +56,7 @@ export interface Choice {
   audio?: NoteEvent[];
 }
 
-export type InputMode = 'choice' | 'sequence' | 'keys' | 'sing' | 'rhythm';
+export type InputMode = 'choice' | 'sequence' | 'keys' | 'sing' | 'rhythm' | 'pulse';
 
 export interface Question {
   kind: ExerciseKind;
@@ -61,6 +78,11 @@ export interface Question {
   sing?: { targets: number[]; target: string; sequential?: boolean };
   rhythm?: { pattern: number[]; bpm: number };
   keysRange?: [number, number];
+  /** sequence input in steps with different palettes (e.g. pitches, then rhythm) */
+  stages?: { until: number; title: string; choices: Choice[] }[];
+  /** notes shown on screen (sight-singing) */
+  score?: string[];
+  pulse?: { events: NoteEvent[]; beats: number[]; tapFrom: number; total: number };
 }
 
 export interface GenCtx {
@@ -76,4 +98,6 @@ export interface GenCtx {
   keyTonic?: number;
   /** true on the first question in a held key (play the full cadence) */
   keyIsNew?: boolean;
+  /** difficulty level 1..5 (lesson crowns) */
+  level?: number;
 }

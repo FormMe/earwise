@@ -11,6 +11,7 @@ import { pc } from '../theory/notes';
 import { Piano } from '../components/Piano';
 import { SingInput, stopMic } from '../components/SingInput';
 import { RhythmInput } from '../components/RhythmInput';
+import { PulseInput } from '../components/PulseInput';
 import { Results } from './Results';
 import { RhythmGlyph } from '../components/RhythmGlyph';
 import { lessonById } from '../game/curriculum';
@@ -58,7 +59,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [xp, setXp] = useState(0);
-  const [xpPop, setXpPop] = useState<{ v: number; k: number } | null>(null);
+  const [xpPop, setXpPop] = useState<{ v: number; k: number; m?: number } | null>(null);
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const [timeLeft, setTimeLeft] = useState(spec.timeLimit ?? 0);
   const [lives, setLives] = useState(spec.lives ?? 0);
@@ -68,6 +69,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const [showIntro, setShowIntro] = useState(!!spec.intro);
   const playToken = useRef(0);
   const introRef = useRef(!!spec.intro);
+  const playsLeftRef = useRef<number | null>(spec.replays ?? null);
+  const phaseRef = useRef<'answer' | 'feedback' | 'done'>('answer');
   const prevKey = useRef<string | undefined>(undefined);
   const nextTimer = useRef<number | null>(null);
   const finished = useRef(false);
@@ -76,6 +79,10 @@ export function Session({ spec }: { spec: SessionSpec }) {
   const seen = useRef<Record<string, number>>({});
   const retries = useRef<{ key: string; cfg: ExerciseConfig; at: number }[]>([]);
   const held = useRef<{ tonic: number; left: number } | null>(null);
+  // placement test progress
+  const block = useRef({ i: 0, n: 0, ok: 0, placed: [] as string[] });
+  const [playsLeft, setPlaysLeft] = useState<number | null>(null);
+  const [mastered, setMastered] = useState<number>(0);
 
   const makeQuestion = useCallback(
     (i: number, score: number) => {
@@ -89,6 +96,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
         retries.current = retries.current.filter((r) => r !== due);
         cfg = due.cfg;
         forced = due.key;
+      } else if (spec.blocks) {
+        cfg = pick(rng.current, spec.blocks[Math.min(block.current.i, spec.blocks.length - 1)].configs);
       } else if (spec.escalate) {
         const n = Math.min(spec.configs.length, 3 + Math.floor(score / 3));
         cfg = pick(rng.current, spec.configs.slice(0, n));
@@ -113,6 +122,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
         rng: rng.current,
         weight: (k) => {
           if (forced) return k === forced ? 1000 : 0.001;
+          if (spec.focus) return k === spec.focus ? 6 : 1;
           // make sure every item comes up (and is answered) at least twice in a lesson
           const cover = (seen.current[k] ?? 0) < 2 ? 2.5 : 0.8;
           return itemWeight(items, k) * cover;
@@ -120,8 +130,9 @@ export function Session({ spec }: { spec: SessionSpec }) {
         lang: settings.lang,
         naming: settings.naming,
         fixedRoot: settings.fixedRoot,
-        tempo: TEMPO[settings.tempo],
+        tempo: TEMPO[settings.tempo] * (spec.tempoMul ?? 1),
         voice: settings.voice,
+        level: spec.level,
         prevKey: forced ? undefined : prevKey.current,
         keyTonic,
         keyIsNew,
@@ -140,16 +151,32 @@ export function Session({ spec }: { spec: SessionSpec }) {
     if (token === playToken.current) setPlaying(false);
   }, []);
 
+  /** listening to the question itself (counted when the lesson limits replays) */
+  const listen = useCallback(
+    (events: NoteEvent[]) => {
+      if (spec.replays != null && phaseRef.current === 'answer') {
+        if ((playsLeftRef.current ?? 0) <= 0) return;
+        playsLeftRef.current = (playsLeftRef.current ?? 0) - 1;
+        setPlaysLeft(playsLeftRef.current);
+      }
+      play(events);
+    },
+    [play, spec.replays],
+  );
+
   const showQuestion = useCallback(
     (question: Question) => {
+      playsLeftRef.current = spec.replays ?? null;
+      setPlaysLeft(playsLeftRef.current);
+      phaseRef.current = 'answer';
       setQ(question);
       setPicked(question.given ? question.answer.slice(0, question.given) : []);
       setIsCorrect(null);
       setPhase('answer');
       setKinds((k) => (k.includes(question.kind) ? k : [...k, question.kind]));
-      if (question.input !== 'rhythm' && !introRef.current) setTimeout(() => play(question.stimulus), 250);
+      if (question.input !== 'rhythm' && question.input !== 'pulse' && !introRef.current) setTimeout(() => listen(question.stimulus), 250);
     },
-    [play],
+    [listen, spec.replays],
   );
 
   // first question
@@ -183,6 +210,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
         score: f.correct,
         kinds,
         pass: spec.pass,
+        level: spec.level,
+        placedUnits: spec.blocks ? block.current.placed : undefined,
       });
       setXp(f.xp + bonus);
       setOutcome(res);
@@ -221,9 +250,12 @@ export function Session({ spec }: { spec: SessionSpec }) {
       const given = q.given ?? 0;
       const ok = okOverride ?? (user.length === q.answer.length && user.every((u, i) => u === q.answer[i]));
       // stats
+      phaseRef.current = 'feedback';
+      let newlyMastered = 0;
       if (q.input === 'sequence') {
-        q.answer.slice(given).forEach((a, i) => recordAnswer([q.itemKeys[i]], user[i + given] === a));
-      } else recordAnswer(q.itemKeys, ok);
+        q.answer.slice(given).forEach((a, i) => (newlyMastered += recordAnswer([q.itemKeys[i]], user[i + given] === a)));
+      } else newlyMastered += recordAnswer(q.itemKeys, ok);
+      if (newlyMastered) setMastered((m) => m + newlyMastered);
       if (ok) q.itemKeys.forEach((k) => (seen.current[k] = (seen.current[k] ?? 0) + 1));
       else if (q.cfg && (q.input === 'choice' || q.input === 'keys') && spec.mode !== 'blitz' && spec.mode !== 'survival')
         retries.current.push({ key: q.itemKeys[0], cfg: q.cfg, at: idx + 2 + Math.floor(Math.random() * 3) });
@@ -235,7 +267,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       const nc = correct + (ok ? 1 : 0);
       const nt = total + 1;
       const nmax = Math.max(maxCombo, newCombo);
-      const nxp = xp + gained;
+      const nxp = xp + gained + newlyMastered * 5;
       setCombo(newCombo);
       setMaxCombo(nmax);
       setCorrect(nc);
@@ -244,7 +276,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       setPicked(user);
       setIsCorrect(ok);
       setPhase('feedback');
-      if (gained) setXpPop({ v: gained, k: Date.now() });
+      if (gained || newlyMastered) setXpPop({ v: gained + newlyMastered * 5, k: Date.now(), m: newlyMastered });
       if (!ok) setMistakes((m) => [...m, { q, user }]);
       if (settings.sfx) audio.sfx(ok ? 'ok' : 'bad');
       if (settings.haptics) haptic(ok ? 15 : [30, 40, 30]);
@@ -264,6 +296,22 @@ export function Session({ spec }: { spec: SessionSpec }) {
         wait = Math.max(wait, dur * 1000 + 600);
       }
       const arcade = spec.mode === 'blitz' || spec.mode === 'survival';
+      if (spec.blocks) {
+        const b = block.current;
+        b.n++;
+        if (ok) b.ok++;
+        if (b.n >= 6) {
+          const passedBlock = b.ok >= 5;
+          if (passedBlock) b.placed.push(spec.blocks[b.i].unitId);
+          b.i++;
+          b.n = 0;
+          b.ok = 0;
+          if (!passedBlock || b.i >= spec.blocks.length) {
+            nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), 1200);
+            return;
+          }
+        }
+      }
       if (spec.lives != null && nlives <= 0) {
         nextTimer.current = window.setTimeout(() => finish({ correct: nc, total: nt, xp: nxp, maxCombo: nmax }), 1400);
         return;
@@ -274,7 +322,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
       }
       if ((ok && (settings.autoNext || arcade)) || (!ok && spec.mode === 'blitz')) {
         nextTimer.current = window.setTimeout(() => advanceRef.current(), ok ? (arcade ? Math.min(wait, 500) : wait) : 1500);
-      }
+      } else if (spec.blocks) nextTimer.current = window.setTimeout(() => advanceRef.current(), ok ? 600 : 1300);
     },
     [q, phase, combo, correct, total, maxCombo, xp, lives, spec, settings, recordAnswer, recordSung, play, finish],
   );
@@ -317,10 +365,10 @@ export function Session({ spec }: { spec: SessionSpec }) {
   // keyboard shortcuts for desktop
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!q || phase === 'done' || q.input === 'rhythm') return;
+      if (!q || phase === 'done' || q.input === 'rhythm' || q.input === 'pulse') return;
       if (e.code === 'Space' || e.key === 'r') {
         e.preventDefault();
-        play(q.stimulus);
+        listen(q.stimulus);
       } else if (e.key === 'Enter') {
         if (phase === 'feedback') advance();
         else if (q.input === 'sequence' && picked.length === q.answer.length) judge(picked);
@@ -354,6 +402,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
   if (phase === 'done' && outcome)
     return (
       <Results
+        mastered={mastered}
+        placed={spec.blocks ? block.current.placed.length : undefined}
         spec={spec}
         outcome={outcome}
         correct={correct}
@@ -429,6 +479,8 @@ export function Session({ spec }: { spec: SessionSpec }) {
     );
   }
 
+  const stage = q.stages?.find((st) => picked.length < st.until) ?? q.stages?.[q.stages.length - 1];
+  const palette = stage ? stage.choices : q.choices;
   const progress = spec.count ? (total / spec.count) * 100 : spec.timeLimit ? (timeLeft / spec.timeLimit) * 100 : 0;
   const given = q.given ?? 0;
 
@@ -452,12 +504,13 @@ export function Session({ spec }: { spec: SessionSpec }) {
             {correct}/{total}
           </div>
         ) : null}
+        {spec.level != null && spec.level > 1 && <div className="pill crown">👑 {spec.level}</div>}
         <div className={`combo ${combo >= 3 ? 'hot' : ''}`} title={t('combo')}>
           🔥 {combo}
         </div>
         {xpPop && (
           <div key={xpPop.k} className="xp-pop">
-            +{xpPop.v} XP
+            +{xpPop.v} XP{xpPop.m ? ` · ✨ ${settings.lang === 'ru' ? 'освоено' : 'mastered'}` : ''}
           </div>
         )}
       </header>
@@ -468,7 +521,12 @@ export function Session({ spec }: { spec: SessionSpec }) {
 
         {q.input !== 'rhythm' && (
           <div className="play-area">
-            <button className={`play-btn ${playing ? 'playing' : ''}`} onClick={() => play(q.stimulus)} aria-label={t('replay')}>
+            <button
+              className={`play-btn ${playing ? 'playing' : ''} ${playsLeft === 0 && phase === 'answer' ? 'spent' : ''}`}
+              onClick={() => (phase === 'answer' ? listen(q.stimulus) : play(q.stimulus))}
+              aria-label={t('replay')}
+            >
+              {playsLeft != null && phase === 'answer' && <span className="plays-left">{playsLeft}</span>}
               <span className="ring" />
               <span className="ring r2" />
               <svg viewBox="0 0 24 24" width="44" height="44" aria-hidden>
@@ -478,7 +536,7 @@ export function Session({ spec }: { spec: SessionSpec }) {
             {q.alt && q.alt.length > 0 && (
               <div className="alt-row">
                 {q.alt.map((a) => (
-                  <button key={a.label} className="chip" onClick={() => play(a.events)}>
+                  <button key={a.label} className="chip" disabled={playsLeft === 0 && phase === 'answer'} onClick={() => (phase === 'answer' ? listen(a.events) : play(a.events))}>
                     {a.label}
                   </button>
                 ))}
@@ -516,16 +574,18 @@ export function Session({ spec }: { spec: SessionSpec }) {
                 const v = picked[i];
                 const label = showLabel(v);
                 const st = phase === 'feedback' && i >= given ? (v === a ? 'ok' : 'bad') : i < given ? 'given' : '';
+                const brk = q.stages?.some((sg) => sg.until === i && i > 0);
                 return (
-                  <div key={i} className={`slot ${st} ${i === picked.length && phase === 'answer' ? 'cur' : ''}`}>
+                  <div key={i} className={`slot ${st} ${brk ? 'brk' : ''} ${i === picked.length && phase === 'answer' ? 'cur' : ''}`}>
                     <span>{label}</span>
                     {phase === 'feedback' && v !== a && i >= given && <small>{showLabel(a)}</small>}
                   </div>
                 );
               })}
             </div>
-            <div className={`choices seq n${q.choices.length}`}>
-              {q.choices.map((c) => (
+            {stage && <div className="stage-title">{stage.title}</div>}
+            <div className={`choices seq n${palette.length}`}>
+              {palette.map((c) => (
                 <button key={c.id} className={`choice small ${c.glyph ? 'glyph' : ''}`} onClick={() => onChoice(c.id)} title={c.glyph ? c.sub : undefined}>
                   <span className="choice-label">{c.glyph ? <RhythmGlyph id={c.glyph} size={38} /> : c.label}</span>
                   {c.sub && !c.glyph && <span className="choice-sub">{c.sub}</span>}
@@ -545,8 +605,26 @@ export function Session({ spec }: { spec: SessionSpec }) {
           </>
         )}
 
+        {q.score && (
+          <div className="score">
+            {q.score.map((x, i) => {
+              const [l, sub] = x.split('|');
+              return (
+                <div key={i} className="score-note">
+                  <b>{l}</b>
+                  <small>{sub}</small>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {q.input === 'sing' && q.sing && (
           <SingInput key={idx} targets={q.sing.targets} sequential={q.sing.sequential} targetLabel={q.sing.target} busy={playing} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
+        )}
+
+        {q.input === 'pulse' && q.pulse && (
+          <PulseInput key={idx} pulse={q.pulse} done={phase !== 'answer'} onResult={(ok) => judge([ok ? 'ok' : 'no'], ok)} />
         )}
 
         {q.input === 'rhythm' && q.rhythm && (

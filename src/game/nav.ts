@@ -26,6 +26,16 @@ export interface SessionSpec {
   intro?: boolean;
   /** play each question on a random instrument */
   randomTimbre?: boolean;
+  /** lesson difficulty level (crown) being played */
+  level?: number;
+  /** playback tempo multiplier (<1 = faster) */
+  tempoMul?: number;
+  /** max listens per question (including the automatic one) */
+  replays?: number;
+  /** placement test: blocks of questions per unit; failing a block ends the test */
+  blocks?: { unitId: string; configs: ExerciseConfig[] }[];
+  /** item key to practise intensively */
+  focus?: string;
 }
 
 type Screen = { name: 'tabs' } | { name: 'session'; spec: SessionSpec; key: number } | { name: 'reference' };

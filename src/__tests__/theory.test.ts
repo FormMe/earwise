@@ -163,3 +163,30 @@ describe('methodology', () => {
     expect(isUnlocked('o1', {}, false)).toBe(true);
   });
 });
+
+import { levelConfig } from '../game/curriculum';
+import { placementSpec, lessonSpec } from '../game/sessions';
+
+describe('levels & placement', () => {
+  it('higher levels make degree drills harder', () => {
+    const c = levelConfig({ kind: 'degree', set: ['1', '3', '5'] }, 4);
+    expect(c.kind === 'degree' && c.wide && c.context === 'tonic').toBe(true);
+  });
+  it('replaying a passed lesson goes to the next level', () => {
+    const spec = lessonSpec('b2', 'ru', { b2: { stars: 2, best: 0.9, plays: 1, level: 1 } }, {});
+    expect(spec.level).toBe(2);
+    expect(spec.randomTimbre).toBe(true);
+    const top = lessonSpec('b2', 'ru', { b2: { stars: 3, best: 1, plays: 9, level: 5 } }, {});
+    expect(top.level).toBe(5);
+    expect(top.replays).toBe(2);
+  });
+  it('placement covers every main unit', () => {
+    expect(placementSpec('ru').blocks!.length).toBe(14);
+  });
+  it('full dictation answers pitches then one cell per beat', () => {
+    const q = generate({ kind: 'fullDictation', set: ['1', '2', '3', '4', '5'], bars: 1, level: 1 }, ctx(4));
+    const n = q.stages![0].until;
+    expect(q.answer.length).toBe(n + 4);
+    expect(q.renderSequence!(q.answer).length).toBe(n);
+  });
+});

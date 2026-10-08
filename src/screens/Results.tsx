@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { NoteEvent } from '../audio/engine';
 import type { Question } from '../exercises/types';
 import { ACHIEVEMENTS } from '../game/achievements';
+import { LEVELS, MAX_LEVEL } from '../game/curriculum';
 import type { SessionSpec } from '../game/nav';
 import { FinishOutcome, useStore } from '../game/store';
 import { rankFor, useLang, useT } from '../i18n';
@@ -18,9 +19,11 @@ interface Props {
   onReplay: (ev: NoteEvent[]) => void;
   onAgain: () => void;
   onClose: () => void;
+  mastered?: number;
+  placed?: number;
 }
 
-export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes, onReplay, onAgain, onClose }: Props) {
+export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes, onReplay, onAgain, onClose, mastered, placed }: Props) {
   const t = useT();
   const lang = useLang();
   const highs = useStore((s) => s.highs);
@@ -49,6 +52,11 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
       <div className="results-head">
         <div className="results-emoji">{passed ? (acc === 100 ? '🏆' : '🎉') : '💪'}</div>
         <h1>{arcade ? spec.title : isLesson ? (passed ? t('lessonComplete') : t('tryAgain')) : t('sessionComplete')}</h1>
+        {isLesson && passed && spec.level && (
+          <div className="level-done">
+            {'👑'.repeat(spec.level)} {lang === 'ru' ? 'Уровень' : 'Level'} {spec.level}/{MAX_LEVEL} · {LEVELS[lang][spec.level]}
+          </div>
+        )}
         {isLesson && (
           <div className="stars big">
             {[1, 2, 3].map((s) => (
@@ -84,6 +92,16 @@ export function Results({ spec, outcome, correct, total, xp, maxCombo, mistakes,
       </div>
 
       <div className="banners">
+        {placed != null && (
+          <div className="banner level">
+            🧭 {lang === 'ru' ? `Засчитано разделов: ${placed}. Продолжай с раздела ${placed + 1}!` : `Units placed out: ${placed}. Continue from unit ${placed + 1}!`}
+          </div>
+        )}
+        {!!mastered && (
+          <div className="banner goal">
+            ✨ {lang === 'ru' ? `Освоено новых элементов: ${mastered}` : `Newly mastered items: ${mastered}`}
+          </div>
+        )}
         {outcome.levelUp && (
           <div className="banner level">
             ⬆️ {t('levelUp')} {outcome.levelUp} · {rankFor(outcome.levelUp, lang)}

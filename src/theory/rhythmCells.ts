@@ -23,15 +23,24 @@ export const BEAT_CELLS: BeatCell[] = [
   { id: 'tri', durs: [4 / 3, 4 / 3, 4 / 3], level: 4, w: 3, ru: 'Триоль', en: 'Triplet' },
 ];
 
-export const cellById = (id: string) => BEAT_CELLS.find((c) => c.id === id)!;
+/** 6/8: one beat = dotted quarter (6 sixteenths) */
+export const COMPOUND_CELLS: BeatCell[] = [
+  { id: 'c3e', durs: [2, 2, 2], level: 1, w: 5, ru: 'Три восьмые', en: 'Three eighths' },
+  { id: 'cqe', durs: [4, 2], level: 1, w: 5, ru: 'Четверть + восьмая', en: 'Quarter + eighth' },
+  { id: 'cdq', durs: [6], level: 1, w: 3, ru: 'Четверть с точкой', en: 'Dotted quarter' },
+  { id: 'ceq', durs: [2, 4], level: 2, w: 2.5, ru: 'Восьмая + четверть', en: 'Eighth + quarter' },
+  { id: 'cr', durs: [-6], level: 2, w: 1, ru: 'Пауза', en: 'Rest' },
+];
 
-export function cellsForLevel(level: number) {
-  return BEAT_CELLS.filter((c) => c.level <= level);
+export const cellById = (id: string) => (BEAT_CELLS.find((c) => c.id === id) ?? COMPOUND_CELLS.find((c) => c.id === id))!;
+
+export function cellsForLevel(level: number, compound = false) {
+  return (compound ? COMPOUND_CELLS : BEAT_CELLS).filter((c) => c.level <= level);
 }
 
 /** A rhythm as one cell per beat. First beat always sounds. */
-export function generateBeatRhythm(rng: Rng, level: number, beats: number): string[] {
-  const pool = cellsForLevel(level);
+export function generateBeatRhythm(rng: Rng, level: number, beats: number, compound = false): string[] {
+  const pool = cellsForLevel(level, compound);
   const out: string[] = [];
   for (let i = 0; i < beats; i++) {
     const avail = i === 0 ? pool.filter((c) => c.durs[0] > 0) : pool;
@@ -39,7 +48,7 @@ export function generateBeatRhythm(rng: Rng, level: number, beats: number): stri
     out.push(c.id);
   }
   // ending on a long note sounds like a phrase ending
-  if (beats >= 4 && rng() < 0.6) out[beats - 1] = 'q';
+  if (beats >= 3 && rng() < 0.6) out[beats - 1] = compound ? 'cdq' : 'q';
   return out;
 }
 

@@ -33,6 +33,13 @@ export function SettingsScreen() {
   const setSettings = useStore((x) => x.setSettings);
   const reset = useStore((x) => x.resetProgress);
   const [askReset, setAskReset] = useState(false);
+  const embedded = (() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  })();
   const cloud = useCloud((c) => c.status);
   const ru = s.lang === 'ru';
   const [canInstall, setCanInstall] = useState(!!deferredPrompt);
@@ -162,7 +169,7 @@ export function SettingsScreen() {
             {t('install')}
           </button>
         ) : (
-          <p className="muted small">{t('installHint')}</p>
+          <p className="muted small">{embedded ? t('installEmbedded') : t('installHint')}</p>
         )}
       </div>
       <div className="card">

@@ -3,6 +3,8 @@ import { audio } from '../audio/engine';
 import { useStore } from '../game/store';
 import { useT } from '../i18n';
 import { Logo } from '../components/Logo';
+import { useNav } from '../game/nav';
+import { placementSpec } from '../game/sessions';
 
 export function Onboarding() {
   const t = useT();
@@ -10,6 +12,7 @@ export function Onboarding() {
   const setOnboarded = useStore((s) => s.setOnboarded);
   const lang = useStore((s) => s.settings.lang);
   const [goal, setGoal] = useState(50);
+  const startSession = useNav((s) => s.startSession);
 
   const goals = [
     { v: 30, l: t('goalCasual'), m: '5' },
@@ -68,6 +71,15 @@ export function Onboarding() {
       <p className="muted small center">🎧 {t('headphones')}</p>
       <button className="btn primary big block" onClick={go}>
         {t('letsGo')}
+      </button>
+      <button
+        className="btn ghost block"
+        onClick={() => {
+          go();
+          startSession(placementSpec(lang));
+        }}
+      >
+        🧭 {lang === 'ru' ? 'Я уже занимаюсь музыкой — входной тест' : "I'm a musician — placement test"}
       </button>
     </div>
   );

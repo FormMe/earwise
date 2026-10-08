@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ALL_LESSONS, isUnlocked, KIND_META, passFor, questionCount, UNITS } from '../game/curriculum';
+import { ALL_LESSONS, isUnlocked, KIND_META, LEVELS, MAX_LEVEL, passFor, questionCount, UNITS } from '../game/curriculum';
 import { useNav } from '../game/nav';
-import { dailySpec, lessonSpec, needsPractice, reviewSpec } from '../game/sessions';
+import { dailySpec, lessonSpec, needsPractice, placementSpec, reviewSpec } from '../game/sessions';
 import { todayStr, useStore } from '../game/store';
 import { useLang, useT } from '../i18n';
 import { audio } from '../audio/engine';
@@ -66,6 +66,23 @@ export function PathScreen() {
         </button>
       </div>
 
+      {!Object.values(lessons).some((x) => x.stars > 0) && (
+        <button
+          className="ref-card placement"
+          onClick={() => {
+            audio.unlock();
+            startSession(placementSpec(lang));
+          }}
+        >
+          <span className="qc-icon">🧭</span>
+          <span className="qc-text">
+            <b>{lang === 'ru' ? 'Уже занимаешься музыкой?' : 'Already a musician?'}</b>
+            <small>{lang === 'ru' ? 'Пройди входной тест — засчитаем то, что ты уже умеешь' : 'Take the placement test and skip what you know'}</small>
+          </span>
+          <span className="chev">›</span>
+        </button>
+      )}
+
       {UNITS.map((u) => {
         const done = u.lessons.filter((l) => (lessons[l.id]?.stars ?? 0) > 0).length;
         return (
@@ -112,6 +129,7 @@ export function PathScreen() {
                           ★
                         </span>
                       ))}
+                      {(lessons[l.id]?.level ?? 0) >= 2 && <span className="node-crown">👑{lessons[l.id]?.level}</span>}
                     </div>
                     {sel === l.id && (
                       <div className="node-pop" style={{ '--uc': u.color } as React.CSSProperties}>
@@ -125,9 +143,19 @@ export function PathScreen() {
                         </div>
                         {l.checkpoint && !stars && <div className="np-sub">🏁 {t('checkpointHint')}</div>}
                         {stale && <div className="np-sub">↻ {t('needsPractice')}</div>}
+                        {!l.checkpoint && stars > 0 && (
+                          <div className="np-sub">
+                            👑 {lang === 'ru' ? 'Уровень' : 'Level'} {lessons[l.id]?.level ?? 1}/{MAX_LEVEL}
+                            {(lessons[l.id]?.level ?? 1) < MAX_LEVEL && ` → ${LEVELS[lang][(lessons[l.id]?.level ?? 1) + 1]}`}
+                          </div>
+                        )}
                         {unlocked ? (
                           <button className="btn primary block" onClick={() => start(l.id)}>
-                            {stars ? t('again') : t('start')}
+                            {stars && !l.checkpoint && (lessons[l.id]?.level ?? 1) < MAX_LEVEL
+                              ? `👑 ${lang === 'ru' ? 'Уровень' : 'Level'} ${(lessons[l.id]?.level ?? 1) + 1}`
+                              : stars
+                                ? t('again')
+                                : t('start')}
                           </button>
                         ) : (
                           <div className="np-locked">🔒 {t('locked')}</div>

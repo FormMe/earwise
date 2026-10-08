@@ -65,6 +65,9 @@ export const UNITS: Unit[] = [
       L('a4', 'Повтори ноту голосом', 'Match the note', { kind: 'sing', mode: 'note' }, {
         intro: { ru: 'Петь — лучший способ слышать. Не бойся фальши: микрофон покажет, выше ты или ниже. Можно петь на октаву ниже или выше.', en: 'Singing is the fastest way to hear. Any octave counts.' },
       }),
+      L('a4p', 'Пульс: стучи доли', 'Pulse: tap the beat', { kind: 'pulse' }, {
+        intro: { ru: 'Пульс — ровные «шаги» музыки. Послушай один такт и стучи на каждую долю вместе с песней.', en: 'The pulse is the steady beat. Listen for a bar, then tap along.' },
+      }),
       L('a5', 'Ритм: повтори', 'Rhythm: echo', { kind: 'rhythm', level: 1 }, {
         intro: { ru: 'Слушай ритм, потом простучи его по большой кнопке после отсчёта «4-3-2-1».', en: 'Listen, then tap it back after the count-in.' },
       }),
@@ -84,6 +87,9 @@ export const UNITS: Unit[] = [
     lessons: [
       L('b1', 'Тоника и квинта', 'Tonic and fifth', { kind: 'degree', set: ['1', '5'] }, {
         intro: { ru: 'Перед каждым вопросом звучит каденция — она задаёт «дом» (тонику, 1 ступень). Тоника звучит спокойно и законченно, 5 ступень — опора, но хочет вернуться домой.', en: 'A cadence sets "home" (the tonic). Degree 1 feels at rest, 5 is stable but wants to go home.' },
+      }),
+      L('b1t', 'Найди тонику', 'Find the tonic', { kind: 'tonicFind' }, {
+        intro: { ru: 'Мелодия почти всегда «возвращается домой». Послушай фразу и выбери, какая из трёх нот — дом.', en: 'Melodies come home. Pick which of three notes is home.' },
       }),
       L('b2', 'До, ми, соль', 'Do, mi, sol', { kind: 'degree', set: ['1', '3', '5'] }, {
         intro: { ru: '1-3-5 — это звуки тонического аккорда, «каркас» тональности. 3 ступень (ми) светлая и определяет мажор.', en: '1-3-5 is the tonic chord; 3 gives major its colour.' },
@@ -144,8 +150,15 @@ export const UNITS: Unit[] = [
       }),
       L('d7', 'Спой все ступени', 'Sing all degrees', { kind: 'sing', mode: 'degree', set: MAJ }, { q: 8 }),
       L('d8', 'Эхо: 4 ноты, весь мажор', 'Echo: 4 notes, full major', { kind: 'sing', mode: 'echo', set: ['5,', '6,', '7,', '1', '2', '3', '4', '5'], length: 4 }),
+      L('d8s', 'Пение с листа', 'Sight-singing', { kind: 'sing', mode: 'sight', set: ['5,', '7,', '1', '2', '3', '4', '5', '6'], length: 5 }, {
+        intro: { ru: 'На экране ступени — спой их по очереди. Сначала прозвучит тональность. Это обратный навык к диктанту: видишь → слышишь внутри → поёшь.', en: 'Degrees on screen — sing them in order. The reverse of dictation.' },
+      }),
       L('d9', 'Диктант: 5 нот', 'Dictation: 5 notes', { kind: 'melody', set: MAJ_FULL, length: 5 }),
       L('d10', 'Диктант с ритмом: 6 нот', 'Rhythmic dictation: 6 notes', { kind: 'melody', set: MAJ_FULL, length: 6, rhythmic: true }),
+      L('d10f', 'Полный диктант: высота + ритм', 'Full dictation: pitch + rhythm', { kind: 'fullDictation', set: ['5,', '7,', '1', '2', '3', '4', '5', '6', '8'], bars: 1, level: 1 }, {
+        q: 6,
+        intro: { ru: 'Настоящий диктант: сначала запиши ступени, потом ритм — по долям, как в ритмическом диктанте.', en: 'Real dictation: degrees first, then rhythm beat by beat.' },
+      }),
       CHECK('d11'),
     ],
   },
@@ -155,6 +168,9 @@ export const UNITS: Unit[] = [
     lessons: [
       L('e1', 'Бас: I, IV, V', 'Bass: I, IV, V', { kind: 'bass', set: ['I', 'IV', 'V'], length: 4 }, {
         intro: { ru: 'Почти любая песня стоит на трёх аккордах: I (тоника, дом), IV (субдоминанта, «отход») и V (доминанта, напряжение). Их бас поёт ступени 1, 4 и 5.', en: 'Most songs rest on I (home), IV (away) and V (tension). Their bass sings degrees 1, 4 and 5.' },
+      }),
+      L('e1f', 'Функции: T, S, D', 'Functions: T, S, D', { kind: 'function', set: ['I', 'IV', 'V'] }, {
+        intro: { ru: 'У каждого аккорда есть «роль»: T — покой, S — уход из дома, D — напряжение, которое тянет обратно.', en: 'Every chord has a role: T rest, S away, D tension.' },
       }),
       L('e2', 'I, IV, V', 'I, IV, V', { kind: 'progression', set: ['I', 'IV', 'V'], length: 4 }),
       L('e3', 'Каденции: полная и половинная', 'Cadences: authentic & half', { kind: 'cadence', set: ['PAC', 'HC'] }, {
@@ -169,6 +185,7 @@ export const UNITS: Unit[] = [
         intro: { ru: 'vi — минорный аккорд на 6 ступени. I–V–vi–IV — самая популярная последовательность в поп-музыке.', en: 'vi is the minor chord on degree 6. I–V–vi–IV powers countless pop songs.' },
       }),
       L('e8', 'Бас: I, IV, V, vi', 'Bass: I, IV, V, vi', { kind: 'bass', set: ['I', 'IV', 'V', 'vi'], length: 4 }),
+      L('e8f', 'Функции: + ii и vi', 'Functions: + ii and vi', { kind: 'function', set: ['I', 'ii', 'IV', 'V', 'vi', 'V7'] }),
       L('e9', 'Поп-группа', 'Pop band', { kind: 'progression', set: ['I', 'IV', 'V', 'vi'], length: 4, free: true, style: 'pop' }),
       L('e10', 'Гитара', 'Guitar strum', { kind: 'progression', set: ['I', 'IV', 'V', 'vi'], length: 4, free: true, style: 'strum' }),
       CHECK('e11'),
@@ -182,6 +199,9 @@ export const UNITS: Unit[] = [
         intro: { ru: 'Интервал — расстояние между двумя нотами. Ты уже знаешь их по ступеням: 1→5 — это квинта, 1→8 — октава. Песни-подсказки — в справочнике.', en: 'An interval is the distance between notes. 1→5 is a fifth, 1→8 an octave.' },
       }),
       L('f2', 'Большая и малая терция', 'Major vs minor third', { kind: 'interval', set: [3, 4], dirs: ['up'] }),
+      L('f2k', 'Интервалы от тоники', 'Intervals from the tonic', { kind: 'intervalInKey', set: ['1', '3', '4', '5', '6', '8'] }, {
+        intro: { ru: 'Связываем интервалы со ступенями: 1→3 — терция, 1→4 — кварта, 1→5 — квинта, 1→6 — секста, 1→8 — октава.', en: 'Link intervals to degrees: 1→3 a third, 1→5 a fifth…' },
+      }),
       L('f3', 'Кварта и квинта', 'Fourth vs fifth', { kind: 'interval', set: [5, 7], dirs: ['up'] }, {
         intro: { ru: 'Кварта (Гимн России: «Рос-сия») и квинта (Звёздные войны) — их часто путают. Квинта звучит «пустее» и шире.', en: 'Fourth (Here Comes the Bride) vs fifth (Star Wars).' },
       }),
@@ -190,6 +210,7 @@ export const UNITS: Unit[] = [
       L('f6', 'Терции, кварта, квинта, октава', 'Thirds, 4th, 5th, octave', { kind: 'interval', set: [3, 4, 5, 7, 12], dirs: ['up'] }),
       L('f7', 'Септимы и тритон', 'Sevenths & tritone', { kind: 'interval', set: [6, 10, 11], dirs: ['up'] }),
       L('f8', 'Все восходящие', 'All ascending', { kind: 'interval', set: ALL12, dirs: ['up'] }),
+      L('f8k', 'Все интервалы от тоники', 'All intervals from the tonic', { kind: 'intervalInKey', set: ['1', '2', '3', '4', '5', '6', '7', '8'] }),
       L('f9', 'Гармонические консонансы', 'Harmonic consonances', { kind: 'interval', set: [3, 4, 5, 7, 8, 9, 12], dirs: ['harm'] }, {
         intro: { ru: 'Теперь обе ноты звучат одновременно. Попробуй мысленно «разложить» их по очереди.', en: 'Both notes at once — try hearing them apart in your head.' },
       }),
@@ -224,6 +245,12 @@ export const UNITS: Unit[] = [
       L('h1', 'Шестнадцатые', 'Sixteenths', { kind: 'rhythmDictation', level: 3 }, {
         intro: { ru: 'Считай доли как «раз-и-а-и»: четыре шестнадцатых в одной доле. Восьмая с точкой — «длинно-коротко».', en: 'Count "1-e-and-a": four sixteenths per beat.' },
       }),
+      L('h1t', 'Размер 3/4', '3/4 time', { kind: 'rhythmDictation', level: 2, meter: 3 }, {
+        intro: { ru: '3/4 — вальс: «раз-два-три». Сильная доля только первая.', en: '3/4 is a waltz: "one-two-three".' },
+      }),
+      L('h1s', 'Размер 6/8', '6/8 time', { kind: 'rhythmDictation', level: 2, meter: 6 }, {
+        intro: { ru: '6/8 — две доли, каждая из трёх восьмых: «раз-и-а, два-и-а». Звучит покачиванием.', en: '6/8 has two beats of three eighths each — a lilting feel.' },
+      }),
       L('h2', 'Шестнадцатые: 2 такта', 'Sixteenths: 2 bars', { kind: 'rhythmDictation', level: 3, bars: 2 }),
       L('h3', 'Синкопы и триоли', 'Syncopation & triplets', { kind: 'rhythmDictation', level: 4 }, {
         intro: { ru: 'Триоль — три равные ноты на одну долю («ра-зи-ки»). Синкопа — акцент между долями.', en: 'A triplet is three even notes per beat; syncopation lands between beats.' },
@@ -231,6 +258,7 @@ export const UNITS: Unit[] = [
       L('h4', 'Повтори: 2 такта', 'Echo: 2 bars', { kind: 'rhythm', level: 3, bars: 2 }),
       L('h5', 'Повтори: синкопы', 'Echo: syncopation', { kind: 'rhythm', level: 4 }),
       L('h6', 'Диктант с ритмом: 7 нот', 'Rhythmic dictation: 7 notes', { kind: 'melody', set: MAJ_FULL, length: 7, rhythmic: true }, { q: 6 }),
+      L('h6f', 'Полный диктант: 2 такта', 'Full dictation: 2 bars', { kind: 'fullDictation', set: ['5,', '7,', '1', '2', '3', '4', '5', '6', '8'], bars: 2, level: 2 }, { q: 5 }),
       L('h7', 'Ритм: 2 такта, всё вместе', 'Rhythm: 2 bars, everything', { kind: 'rhythmDictation', level: 4, bars: 2 }),
       CHECK('h8'),
     ],
@@ -307,6 +335,10 @@ export const UNITS: Unit[] = [
       L('l4', '♭2', '♭2', { kind: 'degree', set: [...MAJ, 'b2'] }),
       L('l5', 'Все 12 ступеней', 'All 12 degrees', { kind: 'degree', set: ['1', 'b2', '2', 'b3', '3', '4', '#4', '5', 'b6', '6', 'b7', '7'] }, { q: 30 }),
       L('l6', 'Хроматический диктант', 'Chromatic dictation', { kind: 'melody', set: ['1', '2', '3', '#4', '4', '5', '6', 'b7', '7', '8'], length: 5, rhythmic: true, maxLeap: 5 }, { q: 6 }),
+      L('l6m', 'Модуляция: была или нет', 'Modulation: yes or no', { kind: 'modulation', set: ['none', 'V'] }, {
+        intro: { ru: 'Модуляция — переход в новую тональность. Сравни последний аккорд с первым: тот же «дом» или новый?', en: 'Modulation moves to a new key. Is the last chord the same home as the first?' },
+      }),
+      L('l6n', 'Куда модулировали', 'Where did it modulate', { kind: 'modulation', set: ['none', 'V', 'IV', 'vi', 'i'] }),
       L('l7', 'Спой хроматику', 'Sing chromatics', { kind: 'sing', mode: 'degree', set: ['1', '#4', '5', 'b7', 'b3'] }),
       CHECK('l8'),
     ],
@@ -333,6 +365,11 @@ export const UNITS: Unit[] = [
     lessons: [
       L('n1', 'Диктант: 8 нот', 'Dictation: 8 notes', { kind: 'melody', set: MAJ_FULL, length: 8, rhythmic: true, maxLeap: 9 }, { q: 5 }),
       L('n2', 'Минорный диктант с вводным тоном', 'Minor dictation with leading tone', { kind: 'melody', set: ['5,', '7,', '1', '2', 'b3', '4', '5', 'b6', 'b7', '7', '8'], length: 7, minor: true, rhythmic: true }, { q: 5 }),
+      L('n2v', 'Двухголосие', 'Two-voice dictation', { kind: 'twoVoice', set: ['I', 'ii', 'IV', 'V', 'vi'], length: 4 }, {
+        q: 5,
+        intro: { ru: 'Звучат два голоса — бас и мелодия. Сначала запиши бас, потом верхний голос. Можно слушать их по отдельности.', en: 'Two voices: write the bass, then the top line.' },
+      }),
+      L('n2f', 'Полный диктант: минор', 'Full dictation: minor', { kind: 'fullDictation', set: ['5,', '7,', '1', '2', 'b3', '4', '5', 'b6', '8'], bars: 2, level: 2, minor: true }, { q: 5 }),
       L('n3', 'Гармония песни: 8 тактов', 'Song harmony: 8 bars', { kind: 'progression', set: ['I', 'ii', 'iii', 'IV', 'V', 'vi', '♭VII'], length: 8, free: true, inversions: true, style: 'pop' }, { q: 5 }),
       L('n4', 'Джазовый стандарт', 'Jazz standard', { kind: 'progression', set: ['Imaj7', 'ii7', 'V7', 'vi7', 'VI7', 'IVmaj7'], length: 6, free: true, style: 'jazz' }, { q: 5 }),
       L('n5', 'Составные интервалы', 'Compound intervals', { kind: 'interval', set: [12, 13, 14, 15, 16], dirs: ['up', 'harm'] }),
@@ -373,19 +410,26 @@ export function itemCount(cfg: ExerciseConfig): number {
       return cfg.set.length;
     case 'inversion':
       return cfg.invs.length;
+    case 'function':
+      return 3;
+    case 'intervalInKey':
+      return cfg.set.length - 1;
+    case 'modulation':
+      return cfg.set.length;
     default:
       return 0;
   }
 }
 
-const SEQ_KINDS = new Set(['melody', 'progression', 'bass', 'rhythmDictation']);
+const SEQ_KINDS = new Set(['melody', 'progression', 'bass', 'rhythmDictation', 'twoVoice', 'fullDictation']);
 
 /** Enough questions that each item comes up ~3 times; 2-option drills need more to rule out guessing. */
 export function questionCount(l: Lesson): number {
   if (l.questions) return l.questions;
   const k = l.cfg.kind;
   if (k === 'pitch') return 16;
-  if (k === 'sing' || k === 'rhythm') return 6;
+  if (k === 'sing' || k === 'rhythm' || k === 'pulse') return 6;
+  if (k === 'tonicFind') return 10;
   if (SEQ_KINDS.has(k)) return 8;
   const n = itemCount(l.cfg);
   if (n <= 2) return 16;
@@ -394,7 +438,7 @@ export function questionCount(l: Lesson): number {
 
 export function passFor(l: Lesson): number {
   if (l.pass) return l.pass;
-  return SEQ_KINDS.has(l.cfg.kind) || l.cfg.kind === 'sing' || l.cfg.kind === 'rhythm' ? 0.75 : 0.8;
+  return SEQ_KINDS.has(l.cfg.kind) || ['sing', 'rhythm', 'pulse'].includes(l.cfg.kind) ? 0.75 : 0.8;
 }
 
 export function isUnlocked(lessonId: string, lessons: Record<string, { stars: number }>, unlockAll: boolean) {
@@ -403,6 +447,8 @@ export function isUnlocked(lessonId: string, lessons: Record<string, { stars: nu
   if (!l) return false;
   // checkpoints are always open: passing one lets you jump over the unit
   if (l.checkpoint) return true;
+  // a lesson you've already passed stays open even if new lessons were inserted before it
+  if ((lessons[lessonId]?.stars ?? 0) > 0) return true;
   if (l.unit.optional) {
     const i = l.unit.lessons.findIndex((x) => x.id === lessonId);
     return i <= 0 || (lessons[l.unit.lessons[i - 1].id]?.stars ?? 0) > 0;
@@ -433,4 +479,36 @@ export const KIND_META: Record<ExerciseKind, { icon: string; ru: string; en: str
   rhythmDictation: { icon: '🎼', ru: 'Ритм на слух', en: 'Rhythm dictation', descRu: 'Запиши ритм нотами', descEn: 'Write the rhythm in notes' },
   bass: { icon: '🎻', ru: 'Бас', en: 'Bass line', descRu: 'Запиши басовую линию', descEn: 'Write the bass line' },
   cadence: { icon: '🔚', ru: 'Каденции', en: 'Cadences', descRu: 'Как заканчивается фраза', descEn: 'How a phrase ends' },
+  function: { icon: '⚖️', ru: 'Функции T S D', en: 'Functions T S D', descRu: 'Роль аккорда в тональности', descEn: 'The role of a chord in a key' },
+  tonicFind: { icon: '🏠', ru: 'Найди тонику', en: 'Find the tonic', descRu: 'Где «дом» у мелодии', descEn: 'Where the melody is at home' },
+  intervalInKey: { icon: '📏', ru: 'Интервалы в тональности', en: 'Intervals in a key', descRu: 'Интервал от тоники', descEn: 'Interval from the tonic' },
+  modulation: { icon: '🔀', ru: 'Модуляции', en: 'Modulation', descRu: 'Смена тональности', descEn: 'Key changes' },
+  twoVoice: { icon: '🎶', ru: 'Двухголосие', en: 'Two voices', descRu: 'Бас и мелодия вместе', descEn: 'Bass and melody together' },
+  fullDictation: { icon: '📝', ru: 'Полный диктант', en: 'Full dictation', descRu: 'Высота и ритм', descEn: 'Pitch and rhythm' },
+  pulse: { icon: '💓', ru: 'Пульс', en: 'Pulse', descRu: 'Стучи доли под музыку', descEn: 'Tap the beat to music' },
 };
+
+/** Difficulty levels (crowns). Level 1 = as written; higher levels change the conditions, not the pass mark. */
+export const LEVELS = {
+  ru: ['', 'Базовый', 'Разные тембры', 'Шире и быстрее', 'Меньше подсказок, 3 прослушивания', 'Мастер: 2 прослушивания'],
+  en: ['', 'Basic', 'Varied timbres', 'Wider and faster', 'Less context, 3 listens', 'Master: 2 listens'],
+};
+export const MAX_LEVEL = 5;
+
+export function levelConfig(cfg: ExerciseConfig, level: number): ExerciseConfig {
+  if (level < 3) return cfg;
+  switch (cfg.kind) {
+    case 'degree':
+      return { ...cfg, wide: true, holdKey: level < 4 ? cfg.holdKey : false, context: level >= 4 ? 'tonic' : cfg.context };
+    case 'chord':
+      return { ...cfg, open: true, inversions: true };
+    case 'melody':
+      return { ...cfg, rhythmic: true };
+    case 'progression':
+      return { ...cfg, inversions: level >= 4 ? true : cfg.inversions, free: level >= 5 ? true : cfg.free };
+    case 'interval':
+      return level >= 4 && cfg.dirs.length === 1 && cfg.dirs[0] === 'up' ? { ...cfg, dirs: ['up', 'down'] } : cfg;
+    default:
+      return cfg;
+  }
+}

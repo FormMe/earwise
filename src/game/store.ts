@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Instrument } from '../audio/synth';
 import type { NoteNaming } from '../theory/notes';
 import { ACHIEVEMENTS, AchievementCtx } from './achievements';
-import { lessonById, lessonsBefore } from './curriculum';
+import { lessonById, lessonsBefore, UNITS } from './curriculum';
 
 export type Lang = 'ru' | 'en';
 
@@ -40,13 +40,15 @@ export const BOX_DAYS = [0, 1, 3, 7, 16, 35];
 const DAY = 86400000;
 
 export interface LessonProgress {
+  /** highest difficulty level (crown) completed, 1..5 */
+  level?: number;
   stars: number;
   best: number;
   plays: number;
 }
 
 export interface SessionResult {
-  mode: 'lesson' | 'practice' | 'blitz' | 'survival' | 'daily' | 'review';
+  mode: 'lesson' | 'practice' | 'blitz' | 'survival' | 'daily' | 'review' | 'placement';
   lessonId?: string;
   correct: number;
   total: number;
@@ -55,6 +57,9 @@ export interface SessionResult {
   score?: number;
   kinds: string[];
   pass?: number;
+  level?: number;
+  /** placement test: units the learner tested out of */
+  placedUnits?: string[];
 }
 
 export interface FinishOutcome {
@@ -83,7 +88,8 @@ interface State {
 
   setSettings: (s: Partial<Settings>) => void;
   setOnboarded: () => void;
-  recordAnswer: (keys: string[], correct: boolean) => void;
+  /** returns how many items just became mastered */
+  recordAnswer: (keys: string[], correct: boolean) => number;
   recordSung: () => void;
   finishSession: (r: SessionResult) => FinishOutcome;
   resetProgress: () => void;
@@ -165,6 +171,7 @@ export const useStore = create<State>()(
       setOnboarded: () => set({ onboarded: true }),
 
       recordAnswer: (keys, correct) => {
+        let newlyMastered = 0;
         const items = { ...get().items };
         const now = Date.now();
         for (const k of keys) {
@@ -175,9 +182,11 @@ export const useStore = create<State>()(
           const b = correct ? (isDue ? Math.min(5, prevBox + 1) : prevBox) : 0;
           const due = correct ? (isDue ? now + BOX_DAYS[b] * DAY : it.due) : now + 10 * 60000;
           items[k] = { n: it.n + 1, c: it.c + (correct ? 1 : 0), s: correct ? it.s + 1 : 0, t: now, b, due };
+          if (b >= 3 && prevBox < 3) newlyMastered++;
         }
         const totals = get().totals;
         set({ items, totals: { ...totals, answers: totals.answers + 1, correct: totals.correct + (correct ? 1 : 0) } });
+        return newlyMastered;
       },
 
       recordSung: () => set({ totals: { ...get().totals, sung: get().totals.sung + 1 } }),
@@ -217,11 +226,17 @@ export const useStore = create<State>()(
           const lp = lessons[r.lessonId] ?? { stars: 0, best: 0, plays: 0 };
           prevStars = lp.stars;
           stars = starsFor(acc, r.pass);
-          lessons[r.lessonId] = { stars: Math.max(lp.stars, stars), best: Math.max(lp.best, acc), plays: lp.plays + 1 };
+          const lvl = stars > 0 ? Math.max(lp.level ?? 0, r.level ?? 1) : lp.level;
+          lessons[r.lessonId] = { stars: Math.max(lp.stars, stars), best: Math.max(lp.best, acc), plays: lp.plays + 1, level: lvl };
           // passing a checkpoint opens everything before it (jumping ahead for experienced musicians)
           if (stars > 0 && lessonById(r.lessonId)?.checkpoint)
             for (const l of lessonsBefore(r.lessonId)) if (!(lessons[l.id]?.stars > 0)) lessons[l.id] = { stars: 1, best: lessons[l.id]?.best ?? 0, plays: lessons[l.id]?.plays ?? 0 };
         }
+
+        // placement: every lesson of a tested-out unit counts as passed
+        for (const uid of r.placedUnits ?? [])
+          for (const l of UNITS.find((u) => u.id === uid)?.lessons ?? [])
+            if (!(lessons[l.id]?.stars > 0)) lessons[l.id] = { stars: 1, best: 0, plays: 0, level: 1 };
 
         const highs = { ...st.highs };
         let newHigh = false;

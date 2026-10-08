@@ -29,6 +29,13 @@ const DEFAULTS: Record<ExerciseKind, ExerciseConfig> = {
   rhythmDictation: { kind: 'rhythmDictation', level: 1 },
   bass: { kind: 'bass', set: ['I', 'IV', 'V'], length: 4 },
   cadence: { kind: 'cadence', set: ['PAC', 'HC', 'PC', 'DC'] },
+  function: { kind: 'function', set: ['I', 'ii', 'IV', 'V', 'vi'] },
+  tonicFind: { kind: 'tonicFind' },
+  intervalInKey: { kind: 'intervalInKey', set: ['1', '2', '3', '4', '5', '6', '7', '8'] },
+  modulation: { kind: 'modulation', set: ['none', 'V', 'IV', 'vi', 'i'] },
+  twoVoice: { kind: 'twoVoice', set: ['I', 'IV', 'V', 'vi'], length: 4 },
+  fullDictation: { kind: 'fullDictation', set: ['5,', '7,', '1', '2', '3', '4', '5', '6', '8'], bars: 1, level: 1 },
+  pulse: { kind: 'pulse' },
 };
 
 const ru_ = (lang: string, ru: string, en: string) => (lang === 'ru' ? ru : en);
@@ -299,8 +306,49 @@ export function PracticeScreen() {
           <>
             <Seg label={t('level_')} value={cfg.level} onChange={(level) => set({ ...cfg, level })} items={[1, 2, 3, 4].map((n) => ({ v: n, l: '★'.repeat(n) }))} />
             <Seg label={t('length')} value={cfg.bars ?? 1} onChange={(bars) => set({ ...cfg, bars })} items={[{ v: 1, l: ru_(lang, '1 такт', '1 bar') }, { v: 2, l: ru_(lang, '2 такта', '2 bars') }]} />
+            <Seg label={ru_(lang, 'Размер', 'Meter')} value={cfg.meter ?? 4} onChange={(meter) => set({ ...cfg, meter })} items={[{ v: 4 as const, l: '4/4' }, { v: 3 as const, l: '3/4' }, { v: 6 as const, l: '6/8' }]} />
           </>
         );
+      case 'function':
+        return (
+          <Chips label={t('options')} value={cfg.set} onChange={(s) => set({ ...cfg, set: s })} items={['I', 'ii', 'iii', 'IV', 'V', 'V7', 'vi', 'vii°'].map((r) => ({ v: r, l: r }))} />
+        );
+      case 'tonicFind':
+        return <Seg value={!!cfg.minor} onChange={(minor) => set({ ...cfg, minor })} items={[{ v: false, l: t('majorKey') }, { v: true, l: t('minorKey') }]} />;
+      case 'intervalInKey':
+        return <Chips label={t('options')} value={cfg.set} onChange={(s) => set({ ...cfg, set: s.includes('1') ? s : ['1', ...s] })} items={['1', '2', '3', '4', '5', '6', '7', '8'].map((d) => ({ v: d, l: d }))} />;
+      case 'modulation':
+        return (
+          <Chips
+            label={t('options')}
+            value={cfg.set}
+            onChange={(s) => set({ ...cfg, set: s })}
+            items={[
+              { v: 'none' as const, l: ru_(lang, 'Нет', 'None') },
+              { v: 'V' as const, l: 'V' },
+              { v: 'IV' as const, l: 'IV' },
+              { v: 'vi' as const, l: 'vi' },
+              { v: 'i' as const, l: 'i' },
+            ]}
+          />
+        );
+      case 'twoVoice':
+        return (
+          <>
+            <Chips label={t('options')} value={cfg.set} onChange={(s) => set({ ...cfg, set: s.includes('I') ? s : ['I', ...s] })} items={['I', 'ii', 'iii', 'IV', 'V', 'vi'].map((r) => ({ v: r, l: r }))} />
+            <Seg label={t('length')} value={cfg.length} onChange={(length) => set({ ...cfg, length })} items={[3, 4, 5, 6].map((n) => ({ v: n, l: String(n) }))} />
+          </>
+        );
+      case 'fullDictation':
+        return (
+          <>
+            <Seg value={!!cfg.minor} onChange={(minor) => set({ ...cfg, minor, set: minor ? ['5,', '7,', '1', '2', 'b3', '4', '5', 'b6', '8'] : ['5,', '7,', '1', '2', '3', '4', '5', '6', '8'] })} items={[{ v: false, l: t('majorKey') }, { v: true, l: t('minorKey') }]} />
+            <Seg label={t('level_')} value={cfg.level} onChange={(level) => set({ ...cfg, level })} items={[1, 2, 3].map((n) => ({ v: n, l: '★'.repeat(n) }))} />
+            <Seg label={t('length')} value={cfg.bars} onChange={(bars) => set({ ...cfg, bars })} items={[{ v: 1, l: ru_(lang, '1 такт', '1 bar') }, { v: 2, l: ru_(lang, '2 такта', '2 bars') }]} />
+          </>
+        );
+      case 'pulse':
+        return <Seg label="BPM" value={cfg.bpm ?? 90} onChange={(bpm) => set({ ...cfg, bpm })} items={[70, 90, 110, 130].map((n) => ({ v: n, l: String(n) }))} />;
       case 'noteName':
         return (
           <>
@@ -313,12 +361,13 @@ export function PracticeScreen() {
           <Seg
             label={t('options')}
             value={cfg.mode}
-            onChange={(mode) => set({ ...cfg, mode, length: mode === 'echo' ? 4 : undefined, set: mode === 'interval' ? ['3', '4', '5', '7', '12'] : mode === 'degree' ? ['1', '2', '3', '4', '5', '6', '7'] : mode === 'echo' ? ['5,', '6,', '7,', '1', '2', '3', '4', '5'] : undefined })}
+            onChange={(mode) => set({ ...cfg, mode, length: mode === 'echo' || mode === 'sight' ? 4 : undefined, set: mode === 'interval' ? ['3', '4', '5', '7', '12'] : mode === 'degree' ? ['1', '2', '3', '4', '5', '6', '7'] : mode === 'echo' || mode === 'sight' ? ['5,', '6,', '7,', '1', '2', '3', '4', '5'] : undefined })}
             items={[
               { v: 'note', l: lang === 'ru' ? 'Нота' : 'Note' },
               { v: 'degree', l: lang === 'ru' ? 'Ступень' : 'Degree' },
               { v: 'interval', l: lang === 'ru' ? 'Интервал' : 'Interval' },
               { v: 'echo', l: lang === 'ru' ? 'Эхо фразы' : 'Phrase echo' },
+              { v: 'sight', l: lang === 'ru' ? 'С листа' : 'Sight-singing' },
             ]}
           />
         );

@@ -4,6 +4,7 @@ import { kindOfKey, labelForKey } from '../game/labels';
 import { currentStreak, isDue, isMastered, itemAcc, levelFromXp, todayStr, useStore } from '../game/store';
 import { rankFor, useLang, useT } from '../i18n';
 import type { ExerciseKind } from '../exercises/types';
+import { MasteryMap } from '../components/MasteryMap';
 
 function Heatmap({ days }: { days: Record<string, number> }) {
   const weeks = 17;
@@ -137,6 +138,11 @@ export function StatsScreen() {
           </p>
         </section>
       )}
+
+      <section className="card">
+        <h3>{lang === 'ru' ? 'Карта мастерства' : 'Mastery map'}</h3>
+        <MasteryMap />
+      </section>
 
       <section className="card">
         <h3>{t('activity')}</h3>

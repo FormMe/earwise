@@ -1,7 +1,7 @@
 import { generate } from '../exercises/generate';
 import type { ExerciseConfig } from '../exercises/types';
 import { hashString, mulberry32, shuffle } from '../theory/random';
-import { ALL_LESSONS, isUnlocked, lessonById, lessonsBefore, passFor, PathLesson, questionCount } from './curriculum';
+import { ALL_LESSONS, isUnlocked, lessonById, lessonsBefore, levelConfig, MAX_LEVEL, passFor, PathLesson, questionCount, UNITS } from './curriculum';
 import type { SessionSpec } from './nav';
 import { isDue, itemAcc, ItemStat, Lang, LessonProgress, todayStr } from './store';
 
@@ -76,18 +76,24 @@ export function lessonSpec(lessonId: string, lang: Lang, lessons: Lessons, items
     };
   }
   const review = l.unit.optional ? [] : reviewPool(before, lessons, items, 4);
+  // passed lessons replay at the next difficulty level (crown)
+  const done = lessons[lessonId]?.level ?? (replay ? 1 : 0);
+  const level = replay ? Math.min(MAX_LEVEL, done + 1) : 1;
   return {
     mode: 'lesson',
     lessonId,
     title,
-    configs: [l.cfg, ...review],
+    configs: [levelConfig(l.cfg, level), ...review],
     primary: 1,
     // new material first; once the lesson is known, mix in more review
     mix: review.length ? (replay ? 0.3 : 0.2) : 0,
     count: questionCount(l),
     pass: passFor(l),
     intro: !(lessons[lessonId]?.plays ?? 0),
-    randomTimbre: replay,
+    randomTimbre: level >= 2,
+    level,
+    tempoMul: level >= 5 ? 0.8 : level >= 3 ? 0.9 : 1,
+    replays: level >= 5 ? 2 : level >= 4 ? 3 : undefined,
   };
 }
 
@@ -144,4 +150,17 @@ export function needsPractice(lessonId: string, lessons: Lessons, items: Items) 
   const l = lessonById(lessonId);
   if (!l || l.checkpoint || !passed(lessons, lessonId)) return false;
   return dueShare(l.cfg, items) > 0.3;
+}
+
+/** Placement test: 6 questions per unit in order; 5/6 tests the learner out of that unit. */
+export function placementSpec(lang: Lang): SessionSpec {
+  const blocks = UNITS.filter((u) => !u.optional)
+    .map((u) => ({ unitId: u.id, configs: u.lessons.filter((l) => !l.checkpoint && MIXABLE.has(l.cfg.kind)).map((l) => l.cfg) }))
+    .filter((b) => b.configs.length);
+  return { mode: 'placement', title: lang === 'ru' ? 'Входной тест' : 'Placement test', configs: blocks[0].configs, count: null, blocks, randomTimbre: false };
+}
+
+/** Practise one item intensively inside its natural exercise. */
+export function focusSpec(key: string, cfg: ExerciseConfig, title: string): SessionSpec {
+  return { mode: 'practice', title, configs: [cfg], count: 12, focus: key };
 }
